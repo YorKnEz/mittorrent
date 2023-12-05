@@ -619,7 +619,7 @@ int32_t tracker_stabilize(tracker_t *tracker) {
 
         free(msg);
 
-        // if we can connect, see if next pointer must be updated and close connection
+        // if we can connect, see if next pointer must be updated
         if (tracker->node.finger[0].initialized == 0) {
             memcpy(&tracker->node.finger[0].node, &tracker->node.finger[i].node, sizeof(node_remote_t));
             tracker->node.finger[0].initialized = 1;
@@ -634,12 +634,6 @@ int32_t tracker_stabilize(tracker_t *tracker) {
         }
     }
 
-    // if there was no next found, it means we are the only node in the network
-    if (tracker->node.finger[0].initialized == 0) {
-        memcpy(&tracker->node.finger[0].node, &tracker->node, sizeof(node_remote_t));
-        tracker->node.finger[0].initialized = 1;
-    }
-
     // check previous pointer
     if (tracker->node.prev_initialized == 1) {
         char *msg;
@@ -647,9 +641,28 @@ int32_t tracker_stabilize(tracker_t *tracker) {
 
         if (-1 == node_req(&tracker->node.prev, PING, NULL, 0, &msg, &msg_size)) {
             tracker->node.prev_initialized = 0;
+        } else {
+            // if we can connect, see if next pointer must be updated
+            if (tracker->node.finger[0].initialized == 0) {
+                memcpy(&tracker->node.finger[0].node, &tracker->node.prev, sizeof(node_remote_t));
+                tracker->node.finger[0].initialized = 1;
+
+                // we found a new next, notify it
+                if (key_cmp(&tracker->node.id, &tracker->node.finger[0].node.id)) {
+                    if (-1 == node_notify_remote(&tracker->node, &tracker->node.finger[0].node, (node_remote_t*)&tracker->node)) {
+                        print(LOG_ERROR, "[tracker_stabilize] Error at node_notify_remote\n");
+                        return -1;
+                    }
+                }
+            }
         }
 
         free(msg);
+    }
+
+    // if there was no next found, tell client that he must rejoin network
+    if (tracker->node.finger[0].initialized == 0) {
+        return 1;
     }
 
     int32_t status = node_stabilize(&tracker->node);

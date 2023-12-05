@@ -72,8 +72,19 @@ int32_t main(int32_t argc, char **argv) {
                 continue;
             }
             
-            if (-1 == tracker_stabilize(client.tracker)) {
+            int32_t status = tracker_stabilize(client.tracker);
+
+            if (-1 == status) {
                 print(LOG, "error: stabilize error\n");
+                continue;
+            } else if (1 == status) {
+                print(LOG, "error: stopping tracker, rejoin network\n");
+                
+                if (-1 == client_stop_tracker(&client)) {
+                   print(LOG, "error: cannot stop tracker\n");
+                    continue;
+                }
+
                 continue;
             }
 
