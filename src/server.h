@@ -7,6 +7,9 @@
 #include "common.h"
 #include "dht.h"
 
+#include "file_list.h"
+#include "node_list.h"
+
 #define THREAD_POOL_SIZE 2
 #define INVALID_COMMAND "Invalid command"
 

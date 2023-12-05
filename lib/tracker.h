@@ -10,6 +10,8 @@
 #include "logger.h"
 #include "network.h"
 #include "query.h"
+#include "file_list.h"
+#include "local_file_list.h"
 
 #define THREAD_POOL_SIZE 2
 

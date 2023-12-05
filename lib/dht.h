@@ -31,17 +31,6 @@ typedef struct {
     node_remote_t prev;             // can be only remote
 } node_local_t;
 
-// linked list for servers to keep track of clients
-typedef struct node_s node_t;
-
-typedef struct node_s {
-    node_remote_t node;
-    node_t *next;
-} node_t;
-
-typedef node_t* list_t;
-
-
 // the following functions have two variants: local and remote
 
 // used for remote procedure calls
@@ -99,25 +88,7 @@ int32_t node_notify_remote(node_local_t *node, node_remote_t *fwd_node, node_rem
 // periodically refresh finger table entries
 int32_t node_fix_fingers(node_local_t *node);
 
-
-// linked list functions
-
-// adds node to the list
-void list_add(list_t *list, node_remote_t *node);
-
-// removes the node with the specified id from the list
-void list_remove(list_t *list, key2_t *id);
-
-// free nodes in the list
-void list_free(list_t *list);
-
-
-// useful debug stuff
-
 // pretty print node_remote_t
 void print_remote_node(log_t log_type, node_remote_t *node);
-
-// print the contents of the list
-void print_list(log_t log_type, list_t *list);
 
 #endif
