@@ -187,23 +187,57 @@ int32_t main(int32_t argc, char **argv) {
 
             // print_query(LOG_DEBUG, &query);
 
+            query_result_t* results;
+            uint32_t results_size;
+
             if (!client.tracker) {
                 // TODO: implement search for non trackers
             } else {
-                if (-1 == tracker_search(client.tracker, &query, client.bootstrap_fd)) {
+                if (-1 == tracker_search(client.tracker, &query, client.bootstrap_fd, &results, &results_size)) {
                     print(LOG, "error: search error\n");
                     continue;
                 }
             }
 
+            // no results found
+            if (results_size == 0) {
+                print(LOG, "error: no results found\n");
+                continue;
+            } 
+
+            results_size = results_size / sizeof(query_result_t);
+
+            // see the keys
+            for (uint32_t i = 0; i < results_size; i++) {
+                print(LOG, "%d. ", i + 1);
+                print_result(LOG, &results[i]);
+                print(LOG, "\n");
+            }
+
+            free(results);
+
             continue;
         }
 
         if (strcmp(cmd, "download") == 0) {
+            char buf[512];
+            
+            print(LOG, "key: ");
+            memset(buf, 0, 512);
+            fgets(buf, 511, stdin);
+            buf[strlen(buf) - 1] = 0;
+
+            // check key validity
+
+            key2_t id;
+            
             if (!client.tracker) {
                 // TODO: implement download for non trackers
             } else {
-                
+                if (-1 == tracker_download(client.tracker, &id)) {
+                    print(LOG, "error: download error\n");
+                    continue;
+                }
             }
             
             continue;

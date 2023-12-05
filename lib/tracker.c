@@ -715,31 +715,20 @@ int32_t tracker_stabilize(tracker_t *tracker) {
     return 0;
 }
 
-int32_t tracker_search(tracker_t *tracker, query_t *query, int32_t server_fd) {
-    char *msg;
-    uint32_t msg_size;
-    
-    if (-1 == send_and_recv(server_fd, SEARCH, query, sizeof(query_t), &msg, &msg_size)) {
+// search a file on the network based on a query
+int32_t tracker_search(tracker_t *tracker, query_t *query, int32_t server_fd, query_result_t** results, uint32_t *results_size) {
+    if (-1 == send_and_recv(server_fd, SEARCH, query, sizeof(query_t), results, results_size)) {
         print(LOG_ERROR, "[tracker_search] Error at send_and_recv\n");
-        free(msg);
+        free(results);
         return -1;
     }
 
-    // no results found
-    if (msg_size == 0) {
-        print(LOG_DEBUG, "no results found\n");
-    } 
-    // see the keys
-    else {
-        for (uint32_t i = 0; i < msg_size; i += sizeof(query_result_t)) {
-            print_result(LOG_DEBUG, (query_result_t*)(msg + i));
-            print(LOG_DEBUG, "\n");
-        }
-    }
-
-    free(msg);
-
     return 0;
+}
+
+// download the specified torrent file
+int32_t tracker_download(tracker_t *tracker, key2_t *id) {
+    
 }
 
 // upload the regular file at path to the network
