@@ -44,7 +44,7 @@ int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, co
     }
 
     print(LOG_DEBUG, "[tracker_init_local_server] Client is listening for connections on: ");
-    print_addr(&tracker->addr);
+    print_addr(LOG_DEBUG, &tracker->addr);
     print(LOG_DEBUG, "\n");
 
     pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
@@ -391,7 +391,7 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
         memcpy(peer, msg, sizeof(node_remote_t));
 
         print(LOG_DEBUG, "[tracker_init_dht_connection] Received peer:\n");
-        print_remote_node(peer);
+        print_remote_node(LOG_DEBUG, peer);
         print(LOG_DEBUG, "\n");
     } else {
         print(LOG_DEBUG, "[tracker_init_dht_connection] No peer received\n");
@@ -538,7 +538,7 @@ void tracker_state(tracker_t *tracker) {
     pthread_mutex_lock(&tracker->lock);
 
     print(LOG, "local server addr: ");
-    print_addr(&tracker->addr);
+    print_addr(LOG, &tracker->addr);
     print(LOG, "\n");
 
     print(LOG, "threads tids:\n");
@@ -548,7 +548,7 @@ void tracker_state(tracker_t *tracker) {
 
     print(LOG, "local node info\n");
     print(LOG, "- remote info: ");
-    print_remote_node((node_remote_t*)&tracker->node);
+    print_remote_node(LOG, (node_remote_t*)&tracker->node);
     print(LOG, "\n");
 
     /*
@@ -560,38 +560,38 @@ void tracker_state(tracker_t *tracker) {
 
         if (i == 0) {
             print(LOG, "    next.start: ");
-            print_key(tracker->node.finger[i].start);
+            print_key(LOG, tracker->node.finger[i].start);
             print(LOG, "\n");
             print(LOG, "    next.node: ");
-            print_remote_node(&tracker->node.finger[i].node);
+            print_remote_node(LOG, &tracker->node.finger[i].node);
             print(LOG, "\n");
         } else {
             print(LOG, "    finger[%d].start: ", i);
-            print_key(tracker->node.finger[i].start);
+            print_key(LOG, tracker->node.finger[i].start);
             print(LOG, "\n");
             print(LOG, "    finger[%d].node: ", i);
-            print_remote_node(&tracker->node.finger[i].node);
+            print_remote_node(LOG, &tracker->node.finger[i].node);
             print(LOG, "\n");
         }
     }
     */
 
     print(LOG, "- next:\n    start: ");
-    print_key(&tracker->node.finger[0].start);
+    print_key(LOG, &tracker->node.finger[0].start);
     print(LOG, "\n  - node: ");
-    print_remote_node(&tracker->node.finger[0].node);
+    print_remote_node(LOG, &tracker->node.finger[0].node);
     print(LOG, "\n");
 
     print(LOG, "- prev: ");
     if (tracker->node.prev_initialized == 0) {
         print(LOG, "-");
     } else {
-        print_remote_node(&tracker->node.prev);
+        print_remote_node(LOG, &tracker->node.prev);
     }
     print(LOG, "\n\n");
 
     print(LOG, "files\n");
-    print_file_list(&tracker->files);
+    print_file_list(LOG, &tracker->files);
     print(LOG, "\n");
 
     pthread_mutex_unlock(&tracker->lock);
@@ -719,7 +719,7 @@ int32_t tracker_search(tracker_t *tracker, query_t *query, int32_t server_fd) {
     // see the keys
     else {
         for (uint32_t i = 0; i < msg_size; i += sizeof(query_result_t)) {
-            print_result((query_result_t*)(msg + i));
+            print_result(LOG_DEBUG, (query_result_t*)(msg + i));
             print(LOG_DEBUG, "\n");
         }
     }

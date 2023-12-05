@@ -64,6 +64,6 @@ int32_t send_and_recv(int32_t socket_fd, req_type_t type, void* req, uint32_t re
 // debug
 
 // pretty print addresses
-void print_addr(struct sockaddr_in *addr);
+void print_addr(log_t log_type, struct sockaddr_in *addr);
 
 #endif

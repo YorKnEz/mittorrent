@@ -572,21 +572,21 @@ void list_free(list_t *list) {
 }
 
 // pretty print node_remote_t
-void print_remote_node(node_remote_t *node) {
-    print(LOG_DEBUG, "(id: ");
-    print_key(&node->id);
-    print(LOG_DEBUG, ", addr: ");
-    print_addr(&node->addr);
-    print(LOG_DEBUG, ")");
+void print_remote_node(log_t log_type, node_remote_t *node) {
+    print(log_type, "(id: ");
+    print_key(log_type, &node->id);
+    print(log_type, ", addr: ");
+    print_addr(log_type, &node->addr);
+    print(log_type, ")");
 }
 
 // print the contents of the list
-void print_list(list_t *list) {
+void print_list(log_t log_type, list_t *list) {
     node_t *p = *list;
 
     while (p) {
-        print_remote_node(&p->node);
-        print(LOG_DEBUG, "\n");
+        print_remote_node(log_type, &p->node);
+        print(log_type, "\n");
 
         p = p->next;
     }

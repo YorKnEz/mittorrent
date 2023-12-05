@@ -174,7 +174,7 @@ int32_t main(int32_t argc, char **argv) {
                 // query.size is initialized
             }
 
-            // print_query(&query);
+            // print_query(LOG_DEBUG, &query);
 
             if (!client.tracker) {
                 // TODO: implement search for non trackers
@@ -220,7 +220,7 @@ int32_t main(int32_t argc, char **argv) {
                 continue;
             }
             
-            print_file(&file);
+            print_file(LOG_DEBUG, &file);
 
             if (-1 == save_file(&file, DEFAULT_SAVE_LOCATION)) {
                 print(LOG, "error: save_file\n");
@@ -232,7 +232,7 @@ int32_t main(int32_t argc, char **argv) {
                 continue;
             }
 
-            print_file(&file);
+            print_file(LOG_DEBUG, &file);
 
             if (-1 == delete_file(&file)) {
                 print(LOG, "error: delete_file\n");

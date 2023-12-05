@@ -121,10 +121,13 @@ void key_double(key2_t *key) {
 	}
 }
 
-void print_key(key2_t *key) {
-	// for (int32_t i = 0; i < 32; i++) {
-	// 	print(LOG_DEBUG, "%x", key->key[i]);
-	// }
-	// temp alternative for shorter prints
-	print(LOG_DEBUG, "%x%x..%x%x", key->key[0], key->key[1], key->key[30], key->key[31]);
+void print_key(log_t log_type, key2_t *key) {
+	if (log_type == LOG_DEBUG) {
+		print(log_type, "%x%x..%x%x", key->key[0], key->key[1], key->key[30], key->key[31]);
+		return;
+	}
+
+	for (int32_t i = 0; i < 32; i++) {
+		print(log_type, "%x", key->key[i]);
+	}
 }

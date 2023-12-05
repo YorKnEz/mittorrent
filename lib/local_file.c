@@ -1,10 +1,10 @@
 #include "local_file.h"
 
 // pretty print file contents
-int32_t print_local_file(local_file_t *file) {
-    print(LOG_DEBUG, "id: ");
-    print_key(&file->id);
-    print(LOG_DEBUG, "\nname: %s\n", file->path);
+int32_t print_local_file(log_t log_type, local_file_t *file) {
+    print(log_type, "id: ");
+    print_key(log_type, &file->id);
+    print(log_type, "\nname: %s\n", file->path);
 }
 
 // adds file to the list
@@ -107,12 +107,12 @@ int32_t local_file_list_find(local_file_list_t *list, key2_t *id, char path[512]
 }
 
 // print the contents of the list
-void print_local_file_list(local_file_list_t *list) {
+void print_local_file_list(log_t log_type, local_file_list_t *list) {
     local_file_node_t *p = *list;
 
     while (p) {
-        print_local_file(&p->file);
-        print(LOG_DEBUG, "\n");
+        print_local_file(log_type, &p->file);
+        print(log_type, "\n");
 
         p = p->next;
     }

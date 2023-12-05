@@ -111,8 +111,8 @@ int32_t send_and_recv(int32_t socket_fd, req_type_t type, void* req, uint32_t re
 }
 
 // pretty print sockaddr_in
-void print_addr(struct sockaddr_in *addr) {
+void print_addr(log_t log_type, struct sockaddr_in *addr) {
     char buf[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &addr->sin_addr.s_addr, buf, sizeof(buf));
-    print(LOG_DEBUG, "%s:%u", buf, addr->sin_port);
+    print(log_type, "%s:%u", buf, addr->sin_port);
 }

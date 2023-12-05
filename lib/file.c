@@ -208,19 +208,19 @@ int32_t delete_file(file_t *file) {
     return 0;
 }
 
-int32_t print_file(file_t *file) {
+int32_t print_file(log_t log_type, file_t *file) {
     if (strcmp(MAGIC, file->magic)) {
         print(LOG_ERROR, "[load_file] Invalid file\n");
         return -1;
     }
 
-    print(LOG_DEBUG, "id: ");
-    print_key(&file->id);
-    print(LOG_DEBUG, "\nname: %s\n", file->name);
-    print(LOG_DEBUG, "path: %s\n", file->path);
-    print(LOG_DEBUG, "size: %llu\n", file->size);
-    print(LOG_DEBUG, "peers:\n");
-    print_list(&file->peers);
+    print(log_type, "id: ");
+    print_key(log_type, &file->id);
+    print(log_type, "\nname: %s\n", file->name);
+    print(log_type, "path: %s\n", file->path);
+    print(log_type, "size: %llu\n", file->size);
+    print(log_type, "peers:\n");
+    print_list(log_type, &file->peers);
 
     return 0;
 }
@@ -374,12 +374,12 @@ void file_list_free(file_list_t *list) {
 }
 
 // print the contents of the list
-void print_file_list(file_list_t *list) {
+void print_file_list(log_t log_type, file_list_t *list) {
     file_node_t *p = *list;
 
     while (p) {
-        print_file(&p->file);
-        print(LOG_DEBUG, "\n");
+        print_file(log_type, &p->file);
+        print(log_type, "\n");
 
         p = p->next;
     }

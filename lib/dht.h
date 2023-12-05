@@ -115,9 +115,9 @@ void list_free(list_t *list);
 // useful debug stuff
 
 // pretty print node_remote_t
-void print_remote_node(node_remote_t *node);
+void print_remote_node(log_t log_type, node_remote_t *node);
 
 // print the contents of the list
-void print_list(list_t *list);
+void print_list(log_t log_type, list_t *list);
 
 #endif

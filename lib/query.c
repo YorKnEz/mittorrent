@@ -1,37 +1,37 @@
 #include "query.h"
 
 // pretty print queries
-void print_query(query_t *query) {
-    print(LOG_DEBUG, "id: ");
+void print_query(log_t log_type, query_t *query) {
+    print(log_type, "id: ");
     if (query->ignore_id) {
-        print(LOG_DEBUG, "-");
+        print(log_type, "-");
     } else {
-        print_key(&query->id);
+        print_key(log_type, &query->id);
     }
-    print(LOG_DEBUG, "\n");
+    print(log_type, "\n");
 
-    print(LOG_DEBUG, "name: ");
+    print(log_type, "name: ");
     if (query->ignore_name) {
-        print(LOG_DEBUG, "-");
+        print(log_type, "-");
     } else {
-        print(LOG_DEBUG, "%s", query->name);
+        print(log_type, "%s", query->name);
     }
-    print(LOG_DEBUG, "\n");
+    print(log_type, "\n");
 
-    print(LOG_DEBUG, "size: ");
+    print(log_type, "size: ");
     if (query->ignore_size) {
-        print(LOG_DEBUG, "-");
+        print(log_type, "-");
     } else {
-        print(LOG_DEBUG, "%d", query->size);
+        print(log_type, "%d", query->size);
     }
-    print(LOG_DEBUG, "\n");
+    print(log_type, "\n");
 }
 
 // pretty print results
-void print_result(query_result_t *result) {
-    // print(LOG_DEBUG, "id: ");
-    // print_key(&query->id);
-    // print(LOG_DEBUG, "\n");
-    print(LOG_DEBUG, "name: %s\n", result->name);
-    print(LOG_DEBUG, "size: %d\n", result->size);
+void print_result(log_t log_type, query_result_t *result) {
+    // print(log_type, "id: ");
+    // print_key(log_type, &query->id);
+    // print(log_type, "\n");
+    print(log_type, "name: %s\n", result->name);
+    print(log_type, "size: %d\n", result->size);
 }

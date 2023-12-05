@@ -23,7 +23,7 @@ typedef struct local_file_node_s {
 typedef local_file_node_t* local_file_list_t;
 
 // pretty print file contents
-int32_t print_local_file(local_file_t *file);
+int32_t print_local_file(log_t log_type, local_file_t *file);
 
 
 // linked list functions
@@ -41,6 +41,6 @@ void local_file_list_free(local_file_list_t *list);
 int32_t local_file_list_find(local_file_list_t *list, key2_t *id, char path[512]);
 
 // print the contents of the list
-void print_local_file_list(local_file_list_t *list);
+void print_local_file_list(log_t log_type, local_file_list_t *list);
 
 #endif

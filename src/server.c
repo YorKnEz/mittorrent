@@ -148,7 +148,7 @@ void server_thread(server_t *server) {
                     pthread_mutex_lock(&server->lock);
 
                     list_add(&server->clients, &new_client);
-                    print_list(&server->clients);
+                    print_list(LOG_DEBUG, &server->clients);
 
                     // give the new client a peer to connect to
                     // so the it can connect to the dht network
@@ -202,7 +202,7 @@ void server_thread(server_t *server) {
 
                     // remove client from clients list
                     list_remove(&server->clients, &id);
-                    print_list(&server->clients);
+                    print_list(LOG_DEBUG, &server->clients);
 
                     // TODO: uploads may need to be recalibrated
 
@@ -222,7 +222,7 @@ void server_thread(server_t *server) {
                     memcpy(&query, msg, sizeof(query_t));
 
                     print(LOG_DEBUG, "SEARCH received\n");
-                    // print_query(&query);
+                    // print_query(LOG_DEBUG, &query);
 
                     pthread_mutex_lock(&server->lock);
 

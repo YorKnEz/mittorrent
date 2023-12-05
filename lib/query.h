@@ -21,9 +21,9 @@ typedef struct {
 } query_result_t;
 
 // pretty print queries
-void print_query(query_t *query);
+void print_query(log_t log_type, query_t *query);
 
 // pretty print results
-void print_result(query_result_t *result);
+void print_result(log_t log_type, query_result_t *result);
 
 #endif

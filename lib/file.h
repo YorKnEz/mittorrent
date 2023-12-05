@@ -54,7 +54,7 @@ int32_t load_file(file_t *file);
 int32_t delete_file(file_t *file);
 
 // pretty print file contents
-int32_t print_file(file_t *file);
+int32_t print_file(log_t log_type, file_t *file);
 
 // serialize file contents in order to be written on the network
 void serialize_file(file_t *file, char **msg, uint32_t *msg_size);
@@ -81,6 +81,6 @@ void file_list_remove(file_list_t *list, key2_t *id);
 void file_list_free(file_list_t *list);
 
 // print the contents of the list
-void print_file_list(file_list_t *list);
+void print_file_list(log_t log_type, file_list_t *list);
 
 #endif
