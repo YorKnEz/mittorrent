@@ -2,29 +2,38 @@ CC=gcc
 CFLAGS=-lpthread -Ilib -Ilib/llist -Isrc
 CFLAGSDBG=-g $(CFLAGS)
 
+TARGET=build
+TEST=test
+
 all: release
 
-client:
-	$(CC) $(CFLAGS) lib/*.c lib/llist/*.c src/client.c -o build/release/client
-client_dbg:
-	$(CC) $(CFLAGSDBG) lib/*.c lib/llist/*.c src/client.c -o build/debug/client
+target:
+	mkdir -p $(TARGET)/release
 
-server:
-	$(CC) $(CFLAGS) lib/*.c lib/llist/*.c src/server.c -o build/release/server
-server_dbg:
-	$(CC) $(CFLAGSDBG) lib/*.c lib/llist/*.c src/server.c -o build/debug/server
+client: target
+	$(CC) $(CFLAGS) lib/*.c lib/llist/*.c src/client.c -o $(TARGET)/release/client
+server: target
+	$(CC) $(CFLAGS) lib/*.c lib/llist/*.c src/server.c -o $(TARGET)/release/server
 
 release: client server
 	for number in 1 2 3 ; do \
-		mkdir -p test/$$number ; \
-		cp build/release/client test/$$number ; \
+		mkdir -p $(TEST)/$$number ; \
+		cp $(TARGET)/release/client $(TEST)/$$number ; \
 	done
+
+target_dbg:
+	mkdir -p $(TARGET)/debug
+
+client_dbg: target_dbg
+	$(CC) $(CFLAGSDBG) lib/*.c lib/llist/*.c src/client.c -o $(TARGET)/debug/client
+server_dbg: target_dbg
+	$(CC) $(CFLAGSDBG) lib/*.c lib/llist/*.c src/server.c -o $(TARGET)/debug/server
 
 debug: client_dbg server_dbg
 	for number in 1 2 3 ; do \
-		mkdir -p test/$$number ; \
-		cp build/debug/client test/$$number ; \
+		mkdir -p $(TEST)/$$number ; \
+		cp $(TARGET)/debug/client $(TEST)/$$number ; \
 	done
 
 clean:
-	rm -rf test build/release/* build/debug/*
+	rm -rf $(TEST) $(TARGET)
