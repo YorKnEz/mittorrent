@@ -136,6 +136,13 @@ void server_thread(server_t *server) {
                     // remove client fd from list
                     FD_CLR(client_fd, &allfd);
 
+                    if (-1 == send_res(client_fd, SUCCESS, NULL, 0)) {
+                        print(LOG_ERROR, "Error at send_res\n");
+                        shutdown(client_fd, SHUT_RDWR);
+                        close(client_fd);
+                        break;
+                    }
+
                     break;
                 }
                 case CONNECT_TRACKER: {
