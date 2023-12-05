@@ -460,7 +460,7 @@ int32_t node_notify_remote(node_local_t *node, node_remote_t *fwd_node, node_rem
     
     // response is useless
     if (-1 == node_req(fwd_node, NOTIFY, peer, sizeof(node_remote_t), &msg, &msg_size)) {
-        print(LOG_ERROR, "[node_update_finger_table_remote] Error at node_req\n");
+        print(LOG_ERROR, "[node_notify_remote] Error at node_req\n");
         return -1;
     }
 
@@ -478,7 +478,7 @@ int32_t node_fix_fingers(node_local_t *node) {
     while ((i = rand() % KEY_BITS) == 0);
 
     if (-1 == node_find_next(node, &node->finger[i].start, &node->finger[i].node)) {
-        print(LOG_ERROR, "[node_notify_remote] Error at node_find_next\n");
+        print(LOG_ERROR, "[node_fix_fingers] Error at node_find_next\n");
         return -1;
     }
 

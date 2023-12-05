@@ -96,7 +96,7 @@ void tracker_local_server_thread(tracker_t *tracker) {
             print(LOG_DEBUG, "[tracker_local_server_thread] Received PING\n");
 
             if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
-                print(LOG_ERROR, "[tracker_local_server_thread] Error at send_res\n");
+                print(LOG_ERROR, "[PING] Error at send_res\n");
                 shutdown(tracker_fd, SHUT_RDWR);
                 close(tracker_fd);
                 continue;
@@ -113,7 +113,7 @@ void tracker_local_server_thread(tracker_t *tracker) {
             pthread_mutex_lock(&tracker->lock);
             
             if (-1 == save_file(&file, DEFAULT_SAVE_LOCATION)) {
-                print(LOG_ERROR, "[tracker_upload] Error at save_file\n");
+                print(LOG_ERROR, "[UPLOAD] Error at save_file\n");
                 break;
             }
 
@@ -310,7 +310,7 @@ void tracker_local_server_thread(tracker_t *tracker) {
                     serialize_file(&p->file, &file, &file_size);
                     
                     if (-1 == send_res(tracker_fd, SUCCESS, file, file_size)) {
-                        print(LOG_ERROR, "[FIND_NEXT] Error at send_res\n");
+                        print(LOG_ERROR, "[MOVE_DATA] Error at send_res\n");
                         free(file);
                         break;
                     }
@@ -330,7 +330,7 @@ void tracker_local_server_thread(tracker_t *tracker) {
 
             // send a zeroed file_t to the peer so it knows we're done sending files
             if (-1 == send_res(tracker_fd, SUCCESS, &zero, sizeof(file_t))) {
-                print(LOG_ERROR, "[FIND_NEXT] Error at send_res\n");
+                print(LOG_ERROR, "[MOVE_DATA] Error at send_res\n");
                 break;
             }
 
