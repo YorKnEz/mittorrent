@@ -121,6 +121,26 @@ void key_double(key2_t *key) {
 	}
 }
 
+int32_t valid_key(char *buf) {
+	if (strlen(buf) != 2 * sizeof(key2_t)) {
+		return 0;
+	}
+
+	for (uint32_t i = 0; i < strlen(buf); i++) {
+		// turn uppercase to lowercase
+		if ('A' <= buf[i] && buf[i] <= 'F') {
+			buf[i] = buf[i] - 'A' + 'a';
+			continue;
+ 		}
+		
+		if (!(('0' <= buf[i] && buf[i] <= '9') || ('a' <= buf[i] && buf[i] <= 'f'))) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 void print_key(log_t log_type, key2_t *key) {
 	if (log_type == LOG_DEBUG) {
 		print(log_type, "%x%x..%x%x", key->key[0], key->key[1], key->key[30], key->key[31]);

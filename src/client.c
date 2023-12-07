@@ -108,21 +108,7 @@ int32_t main(int32_t argc, char **argv) {
             } else {
                 query.ignore_id = 0;
 
-                // check if the key is valid
-                int32_t valid_key = 1;
-                
-                if (strlen(buf) != 2 * KEY_SIZE) {
-                    valid_key = 0;
-                }
-
-                for (uint32_t i = 0; valid_key && i < strlen(buf); i++) {
-                    if (!(('0' <= buf[i] && buf[i] <= '9') || ('a' <= buf[i] && buf[i] <= 'f') || ('A' <= buf[i] && buf[i] <= 'F'))) {
-                        valid_key = 0;
-                        break;
-                    }
-                }
-
-                if (!valid_key) {
+                if (!valid_key(buf)) {
                     print(LOG, "error: invalid key format\n");
                     continue;
                 }
@@ -227,7 +213,11 @@ int32_t main(int32_t argc, char **argv) {
             fgets(buf, 511, stdin);
             buf[strlen(buf) - 1] = 0;
 
-            // check key validity
+
+            if (!valid_key(buf)) {
+                print(LOG, "error: invalid key format\n");
+                continue;
+            }
 
             key2_t id;
             

@@ -51,6 +51,9 @@ void key_sub_int(key2_t *key, uint32_t x);
 // performs key *= 2
 void key_double(key2_t *key);
 
+// checks if a buffer is a valid key
+int32_t valid_key(char *buf);
+
 void print_key(log_t log_type, key2_t *key);
 
 #endif
