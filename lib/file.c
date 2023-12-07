@@ -39,7 +39,7 @@ int32_t create_file(file_t *file, const char *path, node_remote_t *initial_peer)
 
 int32_t save_file(file_t *file, const char *path) {
     // get fullname of file as it will be saved on disk
-    uint32_t torrent_path_size = strlen(path) + strlen(file->name) + 1 + 2 * KEY_SIZE + 1 + strlen(EXT_NAME);
+    uint32_t torrent_path_size = strlen(path) + strlen(file->name) + 1 + 2 * sizeof(key2_t) + 1 + strlen(EXT_NAME);
 
     if (torrent_path_size >= 512) {
         print(LOG_ERROR, "[save_file] Filename is too large");
@@ -49,7 +49,7 @@ int32_t save_file(file_t *file, const char *path) {
     strcpy(file->path, path);
     strcat(file->path, file->name);
     strcat(file->path, "_");
-    for (int32_t i = 0; i < SHA256_BLOCK_SIZE; i++) {
+    for (int32_t i = 0; i < sizeof(key2_t); i++) {
         sprintf(file->path + strlen(path) + strlen(file->name) + 1 + 2 * i, "%02x", file->id.key[i]);
     }
     strcat(file->path, ".");

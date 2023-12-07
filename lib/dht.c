@@ -368,7 +368,7 @@ int32_t node_join(node_local_t *node, node_remote_t *peer) {
         node->finger[i].initialized = 0;
         
         // node->finger[i].start = node->id + 2^i
-        memcpy(&node->finger[i].start, &node->id, SHA256_BLOCK_SIZE);
+        memcpy(&node->finger[i].start, &node->id, sizeof(key2_t));
         key_add(&node->finger[i].start, &pow2);
 
         // pow2 *= 2

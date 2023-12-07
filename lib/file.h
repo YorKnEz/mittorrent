@@ -9,7 +9,6 @@
 #include "dht.h"
 #include "node_list.h"
 
-#define BLOCK_SIZE 4096
 #define MAGIC "HART\0\0\0\0"
 #define EXT_NAME "torrent"
 // by default, all files should be saved here, but client may load .torrents from other sources as well
