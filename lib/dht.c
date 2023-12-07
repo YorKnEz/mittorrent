@@ -4,15 +4,8 @@ int32_t node_req(node_remote_t *node, req_type_t type, void *req, uint32_t req_s
     // connect to node
     int32_t fd;
 
-    if (-1 == (fd = socket(AF_INET, SOCK_STREAM, 0))) {
-        print(LOG_ERROR, "[node_req] Error at socket\n");
-        *res = NULL;
-        return -1;
-    }
-
-    if (-1 == connect(fd, (struct sockaddr*)&node->addr, sizeof(node->addr))) {
-        print(LOG_ERROR, "[node_req] Error at connect\n");
-        close(fd);
+    if (-1 == (fd = get_client_socket(&node->addr))) {
+        print(LOG_ERROR, "[node_req] Error at get_client_socket\n");
         *res = NULL;
         return -1;
     }

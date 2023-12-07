@@ -18,34 +18,15 @@ int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tra
 }
 
 int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port) {
-    // init the socket
-    if (-1 == (tracker->fd = socket(AF_INET, SOCK_STREAM, 0))) {
-        print(LOG_ERROR, "[tracker_init_local_server] Error at socket\n");
-        return -1;
-    }
-
-    // enable SO_REUSEADDR
-    int32_t on = 1;
-    setsockopt(tracker->fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-
     // bind to some address
     tracker->addr.sin_family = AF_INET;
     tracker->addr.sin_addr.s_addr = inet_addr(tracker_ip);
     tracker->addr.sin_port = htons(atoi(tracker_port));
 
-    if (-1 == bind(tracker->fd, (struct sockaddr*)&tracker->addr, sizeof(tracker->addr))) {
-        print(LOG_ERROR, "[tracker_init_local_server] Error at socket bind\n");
+    if (-1 == (tracker->fd = get_server_socket(&tracker->addr))) {
+        print(LOG_ERROR, "[tracker_init_local_server] Error at get_server_socket\n");
         return -1;
     }
-
-    if (-1 == listen(tracker->fd, 0)) {
-        print(LOG_ERROR, "[tracker_init_local_server] Error at socket listen\n");
-        return -1;
-    }
-
-    print(LOG_DEBUG, "[tracker_init_local_server] Client is listening for connections on: ");
-    print_addr(LOG_DEBUG, &tracker->addr);
-    print(LOG_DEBUG, "\n");
 
     pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
     memcpy(&tracker->mlock, &init, sizeof(pthread_mutex_t));
@@ -413,15 +394,8 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
         // connect to node
         int32_t fd;
 
-        if (-1 == (fd = socket(AF_INET, SOCK_STREAM, 0))) {
-            print(LOG_ERROR, "[tracker_init_dht_connection] Error at socket\n");
-            free(peer);
-            return -1;
-        }
-
-        if (-1 == connect(fd, (struct sockaddr*)&tracker->node.finger[0].node.addr, sizeof(struct sockaddr_in))) {
-            print(LOG_ERROR, "[tracker_init_dht_connection] Error at connect\n");
-            close(fd);
+        if (-1 == (fd = get_client_socket(&tracker->node.finger[0].node.addr))) {
+            print(LOG_ERROR, "[tracker_init_dht_connection] Error at get_client_socket\n");
             free(peer);
             return -1;
         }
@@ -480,14 +454,10 @@ int32_t tracker_cleanup(tracker_t *tracker) {
     // send shutdown request to all threads
     // TODO: maybe some form of validation that the tracker wants to shutdown its threads
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
-        int32_t fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (-1 == fd) {
-            print(LOG_ERROR, "[tracker_cleanup] Error at socket\n");
-            return -1;
-        }
+        int32_t fd;
 
-        if (-1 == connect(fd, (struct sockaddr*)&tracker->addr, sizeof(tracker->addr))) {
-            print(LOG_ERROR, "[tracker_cleanup] Error at connect\n");
+        if (-1 == (fd = get_client_socket(&tracker->addr))) {
+            print(LOG_ERROR, "[tracker_cleanup] Error at get_client_socket\n");
             return -1;
         }
 

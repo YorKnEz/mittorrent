@@ -298,18 +298,13 @@ void client_init(client_t *client) {
 }
 
 void client_init_bootstrap_server_connection(client_t *client) {
-    // init the socket
-    if (-1 == (client->bootstrap_fd = socket(AF_INET, SOCK_STREAM, 0))) {
-        handle_error("[client_init_dht_connection] Error at boostrap socket\n");
-    }
-
     // connect to bootstrap server address
     client->bootstrap_addr.sin_family = AF_INET;
     client->bootstrap_addr.sin_addr.s_addr = BOOTSTRAP_SERVER_IP;
     client->bootstrap_addr.sin_port = htons(BOOTSTRAP_SERVER_PORT);
 
-    if (-1 == connect(client->bootstrap_fd, (struct sockaddr*)&client->bootstrap_addr, sizeof(client->bootstrap_addr))) {
-        handle_error("[client_init_dht_connection] Error at connect\n");
+    if (-1 == (client->bootstrap_fd = get_client_socket(&client->bootstrap_addr))) {
+        handle_error("[client_init_bootstrap_server_connection] Error at get_client_socket\n");
     }
 }
 

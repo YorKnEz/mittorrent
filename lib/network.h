@@ -49,6 +49,14 @@ typedef struct {
     uint32_t size;
 } res_header_t;
 
+// socket creation
+// create a socket connected to specified addr
+int32_t get_client_socket(struct sockaddr_in *addr);
+
+// create a socket that is bound to the specified addr
+int32_t get_server_socket(struct sockaddr_in *addr);
+
+
 // read and write don't write all bytes in one call in all cases, msg is assumed to be allocated for both cases
 int32_t read_full(int32_t socket_fd, void *buf, uint32_t buf_size);
 int32_t write_full(int32_t socket_fd, void *buf, uint32_t buf_size);

@@ -1,5 +1,55 @@
 #include "network.h"
 
+// create a socket connected to specified addr
+int32_t get_client_socket(struct sockaddr_in *addr) {
+    int32_t fd;
+
+    if (-1 == (fd = socket(AF_INET, SOCK_STREAM, 0))) {
+        print(LOG_ERROR, "[get_client_socket] Error at socket\n");
+        return -1;
+    }
+
+    if (-1 == connect(fd, (struct sockaddr*)addr, sizeof(struct sockaddr_in))) {
+        print(LOG_ERROR, "[get_client_socket] Error at connect\n");
+        close(fd);
+        return -1;
+    }
+
+    return fd;
+}
+
+// create a socket that is bound to the specified addr
+int32_t get_server_socket(struct sockaddr_in *addr) {
+    int32_t fd;
+    // init the socket
+    if (-1 == (fd = socket(AF_INET, SOCK_STREAM, 0))) {
+        print(LOG_ERROR, "[get_server_socket] Error at socket\n");
+        return -1;
+    }
+
+    // enable SO_REUSEADDR
+    int32_t on = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+    if (-1 == bind(fd, (struct sockaddr*)addr, sizeof(struct sockaddr_in))) {
+        print(LOG_ERROR, "[get_server_socket] Error at bind\n");
+        close(fd);
+        return -1;
+    }
+
+    if (-1 == listen(fd, 0)) {
+        print(LOG_ERROR, "[get_server_socket] Error at listen\n");
+        close(fd);
+        return -1;
+    }
+
+    print(LOG_DEBUG, "[get_server_socket] Listening for connections on: ");
+    print_addr(LOG_DEBUG, addr);
+    print(LOG_DEBUG, "\n");
+
+    return fd;
+}
+
 int32_t read_full(int32_t socket_fd, void *buf, uint32_t buf_size) {
     uint32_t read_bytes = 0, to_read = buf_size;
 

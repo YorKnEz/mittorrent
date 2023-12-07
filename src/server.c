@@ -25,30 +25,14 @@ void server_init(server_t *server) {
     memcpy(&server->lock, &init, sizeof(pthread_mutex_t));
     memcpy(&server->mlock, &init, sizeof(pthread_mutex_t));
 
-    // init the socket
-    if (-1 == (server->fd = socket(AF_INET, SOCK_STREAM, 0))) {
-        handle_error("Error at socket\n");
-    }
-
-    // enable SO_REUSEADDR
-    int32_t on = 1;
-    setsockopt(server->fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-
-    // bind it to the default address
+    // server default address
     server->addr.sin_family = AF_INET;
     server->addr.sin_addr.s_addr = BOOTSTRAP_SERVER_IP;
     server->addr.sin_port = htons(BOOTSTRAP_SERVER_PORT);
 
-    if (-1 == bind(server->fd, (struct sockaddr*)&server->addr, sizeof(server->addr))) {
-        handle_error("Error at bind\n");
+    if (-1 == (server->fd = get_server_socket(&server->addr))) {
+        handle_error("Error at get_server_socket");
     }
-
-    // start listening for connections
-    if (-1 == listen(server->fd, 0)) {
-        handle_error("Error at listen\n");
-    }
-
-    print(LOG_DEBUG, "Bootsrap server is listening for connections\n");
 
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_create(&server->tid[i], NULL, (void *(*)(void*))&server_thread, server);
