@@ -2,7 +2,7 @@
 
 int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, int32_t boostrap_server_fd) {
     tracker->files = NULL;
-    tracker->uploads = NULL;
+    tracker->local_files = NULL;
     
     if (-1 == tracker_init_local_server(tracker, tracker_ip, tracker_port)) {
         print(LOG_ERROR, "[tracker_init] Error at tracker_init_local_server\n");
@@ -83,6 +83,20 @@ void tracker_local_server_thread(tracker_t *tracker) {
                 continue;
             }
 
+            break;
+        }
+        case DOWNLOAD: {
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received DOWNLOAD\n");
+
+            // TODO: DOWNLOAD
+
+            if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
+                print(LOG_ERROR, "[DOWNLOAD] Error at send_res\n");
+                shutdown(tracker_fd, SHUT_RDWR);
+                close(tracker_fd);
+                continue;
+            }
+            
             break;
         }
         case UPLOAD: {
@@ -497,7 +511,7 @@ int32_t tracker_cleanup(tracker_t *tracker) {
         file_list_remove(&tracker->files, &tracker->files->file.id);
     }
 
-    local_file_list_free(&tracker->uploads);
+    local_file_list_free(&tracker->local_files);
 
     return 0;
 }
@@ -698,7 +712,29 @@ int32_t tracker_search(tracker_t *tracker, query_t *query, int32_t server_fd, qu
 
 // download the specified torrent file
 int32_t tracker_download(tracker_t *tracker, key2_t *id) {
-    
+    // find the peer that handles id
+    node_remote_t peer;
+    if (-1 == node_find_next(&tracker->node, id, &peer)) {
+        print(LOG_ERROR, "[tracker_download] Error at node_find_next\n");
+        return -1;
+    }
+
+    char *msg;
+    uint32_t msg_size;
+
+    // we know for certain the node exists, ask it if the key id has a value
+    if (-1 == node_req(&peer, SEARCH, id, sizeof(key2_t), &msg, &msg_size)) {
+        print(LOG_ERROR, "[tracker_download] Error at node_req\n");
+        free(msg);
+        return -1;
+    }
+
+    file_t file;
+    deserialize_file(&file, msg, msg_size);
+
+    free(msg);
+
+    return 0;
 }
 
 // upload the regular file at path to the network
@@ -744,14 +780,14 @@ int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) 
     // save the original file entry
     local_file_t local_file;
 
-    memcpy(&local_file.id, &file.id, sizeof(key2_t));
-    strcpy(local_file.path, path);
+    local_file_from_file(&local_file, &file, path);
+    // we own all blocks of the file if we uploaded it
+    memset(local_file.blocks, 1, local_file.blocks_size);
 
-    local_file_list_add(&tracker->uploads, &local_file);
+    local_file_list_add(&tracker->local_files, &local_file);
 
     // notify the server that we uploaded a file
     // send the file_t without the peers list because it's hard to maintain
-
     if (-1 == send_and_recv(server_fd, UPLOAD, &file, sizeof(file_t) - sizeof(list_t), &msg, &msg_size)) {
         print(LOG_ERROR, "[tracker_upload] Error at send_and_recv\n");
         free(msg);

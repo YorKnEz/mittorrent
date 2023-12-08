@@ -13,16 +13,16 @@
 #include "logger.h"
 
 typedef enum { 
-    // bootstrap server request types
+    // bootstrap server protocol
     DISCONNECT,                     // completely disconnect from bootstrap server
                                     // connect not needed
     CONNECT_TRACKER,                // user starts tracker
     DISCONNECT_TRACKER,             // user stops tracker
     SEARCH,                         // search files matching a query on server
-    DOWNLOAD,                       //
     UPLOAD,                         // client: adds the file to it's local file list
                                     // server: indexes the file for searching by others
     SHUTDOWN,                       // client: shut down a client thread
+    
     // Chord protocol
     PING,                           // asks node if it's alive
     FIND_NEXT,                      //
@@ -32,6 +32,12 @@ typedef enum {
     /* UPDATE_FINGER_TABLE, */ 
     NOTIFY,                         //
     MOVE_DATA,                      // tell a tracker that it needs to transfer keys
+    
+    // Download protocol
+    DOWNLOAD,                       // init download process
+    BLOCKS,                         // server: ask peer what blocks he owns of the file
+                                    // client: tell a peer what blocks to send
+    BLOCK,                          // send a block to a peer
 } req_type_t;
 
 typedef struct {

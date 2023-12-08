@@ -31,7 +31,7 @@ typedef struct {
     node_local_t node;                  // the dht network local data
 
     file_list_t files;                  // list of torrent files stored by the tracker
-    local_file_list_t uploads;          // list of files uploaded by tracker
+    local_file_list_t local_files;      // list of files that the tracker can transfer upon a download request
 } tracker_t;
 
 int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, int32_t boostrap_server_fd);
