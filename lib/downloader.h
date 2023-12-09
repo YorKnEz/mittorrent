@@ -12,14 +12,6 @@
 #include "local_file.h"
 #include "network.h"
 
-/*
-The download protocol shall be described like this:
-A user wants to download a file, it notifies the downloader module, which creates a new socket which it binds to some port, it sends this information to the peer to download the file from. The peer will connect to this server and start sending blocks of a file to the downloader
-The downloader's job is to collect these blocks and recompose the file
-
-Each peer holds a list of blocks that it owns as peers might participate in file transfer even if they haven't got the full file yet
-*/
-
 #define DOWNLOADER_POOL_SIZE 2 // split the download process across threads
 
 typedef struct {
@@ -27,20 +19,28 @@ typedef struct {
     char *blocks;
 } download_peer_t;
 
+typedef enum {
+    IDLE,       // file is not being downloaded yet
+    RUNNING,    // file is being downloaded at this moment
+    PAUSED,     // download has been stopped
+    DONE,       // download is done (all blocks were received)
+} download_state_t;
+
 // download job info
 typedef struct {
+    pthread_mutex_t lock;       // struct lock
+    download_state_t state;
     local_file_t local_file;
+    uint32_t blocks_size;       // size of the array, ceil of size / FILE_BLOCK_SIZE
+    char *blocks;               // array of true/false values that shows which blocks are downloaded
     uint32_t peers_size;
     download_peer_t *peers;
 } download_t;
 
 typedef struct {
     pthread_mutex_t lock;   // struct lock
+    int32_t running;        // flag for stopping downloader
 
-    int32_t fd;
-    struct sockaddr_in addr;
-
-    pthread_mutex_t mlock;
     pthread_t tid[DOWNLOADER_POOL_SIZE];
 
     // dynamic buffer of download jobs
@@ -48,14 +48,28 @@ typedef struct {
     download_t *downloads;
 } downloader_t;
 
-int32_t download_init(downloader_t *downloader, file_t *file);
+// given a file, initializes a download object
+int32_t download_init(download_t *download, file_t *file);
 
-int32_t download_cleanup(downloader_t *downloader, download_t *download);
+// effectively downloads a file
+int32_t download_start(download_t *download);
 
-int32_t downloader_init(downloader_t *downloader, const char *ip, const char *port);
+// frees the memory allocated to a download
+int32_t download_cleanup(download_t *download);
+
+// print state of a download
+void print_download(log_t log_type, download_t *download);
+
+int32_t downloader_init(downloader_t *downloader);
 
 void downloader_thread(downloader_t *downloader);
 
 void downloader_cleanup(downloader_t *downloader);
+
+// creates a new download and adds it to the downloaders job list
+int32_t downloader_add(downloader_t *downloader, file_t *file);
+
+// prints current state of downloads
+void print_downloader(log_t log_type, downloader_t *downloader);
 
 #endif

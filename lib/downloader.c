@@ -1,8 +1,12 @@
 #include "downloader.h"
 
-int32_t download_init(downloader_t *downloader, file_t *file) {
-    download_t download;
-    // init local_file
+int32_t download_init(download_t *download, file_t *file) {
+    pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
+    memcpy(&download->lock, &init, sizeof(pthread_mutex_t));
+    
+    download->state = IDLE;
+    
+    // try creating the file on disk
     char path[512];
 
     print(LOG, "where do you want to save the file?\n> ");
@@ -11,6 +15,7 @@ int32_t download_init(downloader_t *downloader, file_t *file) {
     fgets(path, 511, stdin);
     path[strlen(path) - 1] = 0;
 
+    int32_t fd;
     struct stat info;
 
     if (-1 == stat(path, &info)) {
@@ -18,7 +23,7 @@ int32_t download_init(downloader_t *downloader, file_t *file) {
         return -1;
     }
 
-    if (!S_iSDIR(path)) {
+    if (!S_ISDIR(info.st_mode)) {
         print(LOG, "error: not a directory path\n");
         return -1;
     }
@@ -31,8 +36,6 @@ int32_t download_init(downloader_t *downloader, file_t *file) {
         return -1;
     }
 
-    // create the file
-    int32_t fd;
     if (-1 == (fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0666))) {
         print(LOG_ERROR, "[download_init] Error at open\n");
         return -1;
@@ -46,53 +49,276 @@ int32_t download_init(downloader_t *downloader, file_t *file) {
     }
 
     close(fd);
-    
-    local_file_from_file(&download.local_file, file, path);
+
+    // create local_file entry
+    local_file_from_file(&download->local_file, file, path);
+
+    download->blocks_size = download->local_file.size / FILE_BLOCK_SIZE + (download->local_file.size % FILE_BLOCK_SIZE > 0);
+    download->blocks = (char*)malloc(download->blocks_size);
+    memset(download->blocks, 0, download->blocks_size);
 
     // init peers buffer
-    download.peers_size = 0;
-    download.peers = NULL;
+    download->peers_size = 0;
+    download->peers = NULL;
 
     node_t *p = file->peers;
     char *msg;
     uint32_t msg_size;
 
-    struct {
-        key2_t file_id;
-        struct sockaddr_in dwldr_addr;
-    } data;
-
-    memcpy(&data.file_id, &file->id, sizeof(key2_t));
-    memcpy(&data.dwldr_addr, &downloader->addr, sizeof(struct sockaddr_in));
-
     while (p) {
         // node is probably dead
-        if (-1 == node_req(&p->node, DOWNLOAD, &data, sizeof(data), &msg, &msg_size)) {
+        if (-1 == node_req(&p->node, DOWNLOAD, &file->id, sizeof(key2_t), &msg, &msg_size)) {
             free(msg);
             p = p->next;
+            continue;
+        }
+
+        if (msg == NULL) {
+            // key was not found for some reason
             continue;
         }
         
         // node answered and sent us the blocks it has of this file
         download_peer_t peer;
-        memcpy(&peer, &p->node, sizeof(node_remote_t));
-        memcpy(peer.blocks, msg, download.local_file.blocks_size);
-
-        free(msg);
+        memcpy(&peer.peer, &p->node, sizeof(node_remote_t));
+        peer.blocks = (char*)malloc(msg_size);
+        memcpy(peer.blocks, msg, msg_size);
 
         // add peer to peers buffer
-        download_peer_t *tmp = (download_peer_t*)malloc((1 + download.peers_size) * sizeof(download_peer_t));
-        memcpy(tmp, download.peers, download.peers_size * sizeof(download_peer_t));
-        memcpy(&tmp[download.peers_size], &peer, sizeof(download_peer_t));
-        download.peers_size += 1;
-        free(download.peers);
-        download.peers = tmp;
+        download_peer_t *tmp = (download_peer_t*)malloc((1 + download->peers_size) * sizeof(download_peer_t));
+        memcpy(tmp, download->peers, download->peers_size * sizeof(download_peer_t));
+        memcpy(&tmp[download->peers_size], &peer, sizeof(download_peer_t));
+        download->peers_size += 1;
+        free(download->peers);
+        download->peers = tmp;
         tmp = NULL;
         
         p = p->next;
     }
     
-    // download can be started so add the created download to the downloads buffer
+    return 0;
+}
+
+int32_t download_start(download_t *download) {
+    // open the file
+    int32_t fd;
+    if (-1 == (fd = open(download->local_file.path, O_RDWR))) {
+        print(LOG_ERROR, "[download_start] Error at open\n");
+        return -1;
+    }
+    
+    // download can be started at this point
+    // TODO: improve block download algorithm
+    // TODO: option to retry a download if a file is not fully downloaded
+    // for now the algorithm takes each block in order and tries getting it from the peers that have it, if it fails, the file cannot be downloaded yet
+
+    char *msg;
+    uint32_t msg_size;
+
+    block_t block;
+    memcpy(&block.id, &download->local_file.id, sizeof(key2_t));
+    int32_t blocks_received = 1;
+
+    for (uint32_t i = 0; i < download->blocks_size; i++) {
+        // stop the download if it's state has been changed from running
+        pthread_mutex_lock(&download->lock);
+        download_state_t local_state = download->state;
+        pthread_mutex_unlock(&download->lock);
+
+        if (local_state != RUNNING) {
+            break;
+        }
+        
+        // skip already owned blocks
+        if (download->blocks[i] == 1) {
+            continue;
+        }
+
+        block.index = i;    // index of the block
+
+        // go through each peer and see if owns the block
+        for (uint32_t j = 0; j < download->peers_size; j++) {
+            // if it does, request it and try writing to file, if any error occurs, try next peer
+            if (download->peers[j].blocks[i] == 1) {
+                if (-1 == node_req(&download->peers[j].peer, BLOCK, &block, sizeof(block_t), &msg, &msg_size)) {
+                    free(msg);
+                    continue;
+                }
+
+                if (msg == NULL) {
+                    print(LOG_ERROR, "[BLOCK] Block not found\n");
+                    // no need to free
+                    continue;
+                }
+
+                if (-1 == (lseek(fd, i * FILE_BLOCK_SIZE, SEEK_SET))) {
+                    print(LOG_ERROR, "[BLOCK] Error at lseek\n");
+                    continue;
+                }
+
+                if (-1 == write(fd, msg, msg_size)) {
+                    print(LOG_ERROR, "[BLOCK] Error at write");
+                    continue;
+                }
+                
+                download->blocks[block.index] = 1;
+
+                free(msg);
+            }
+
+            sleep(5); // wait 5 seconds between packets so i can test this shit
+        }
+
+        // if we didn't manage to get a certain block, it means download must be retried later, but still try to get the rest of the blocks
+        if (download->blocks[i] == 0) {
+            blocks_received = 0;
+        }
+    }
+
+    pthread_mutex_lock(&download->lock);
+
+    if (blocks_received == 1) {
+        download->state = DONE;     // download is done, local_file can be transfered
+    } else {
+        download->state = PAUSED;   // download is not done, so pause it, giving the user the ability to retry at any point
+    }
+
+    pthread_mutex_unlock(&download->lock);
+    
+    close(fd);
+
+    return 0;
+}
+
+int32_t download_cleanup(download_t *download) {
+    for (uint32_t i = 0; i < download->peers_size; i++) {
+        free(download->peers[i].blocks);
+    }
+    free(download->peers);
+}
+
+void print_download(log_t log_type, download_t *download) {
+    print(log_type, "state: ");
+    switch (download->state) {
+    case    IDLE: { print(log_type, "IDLE   "); break; }
+    case RUNNING: { print(log_type, "RUNNING"); break; }
+    case  PAUSED: { print(log_type, "PAUSED "); break; }
+    case    DONE: { print(log_type, "DONE   "); break; }
+    }
+    print(log_type, "\n");
+    
+    print_local_file(log_type, &download->local_file);
+
+    // pretty print the block state
+    print(log_type, "status: ");
+    uint32_t state = 0;
+    for (uint32_t i = 0; i < download->blocks_size; i++) {
+        if (download->blocks[i] == 1) {
+            state += 1;
+        }
+    }
+    state = (state * 100) / download->blocks_size;
+    print(log_type, "[");
+    // map block state on 32 characters
+    for (uint32_t i = 0; i < 32 * state / 100; i++) {
+        print(log_type, "#");
+    }
+    for (uint32_t i = 32 * state / 100; i < 32; i++) {
+        print(log_type, " ");
+    }
+    print(log_type, "] %d%%\n", state);
+    
+    print(log_type, "peers: %d\n", download->peers_size);
+}
+
+int32_t downloader_init(downloader_t *downloader) {
+    downloader->downloads_size = 0;
+    downloader->downloads = NULL;
+    
+    pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
+    memcpy(&downloader->lock, &init, sizeof(pthread_mutex_t));
+
+    downloader->running = 1;
+
+    for (uint32_t i = 0; i < DOWNLOADER_POOL_SIZE; i++) {
+        pthread_create(&downloader->tid[i], NULL, (void *(*)(void*))&downloader_thread, downloader);
+    }
+}
+
+void downloader_thread(downloader_t *downloader) {
+    int32_t running = 1;
+
+    while (running) {
+        // check running state of downloader
+        pthread_mutex_lock(&downloader->lock);
+
+        int32_t download_index = -1;
+
+        do {
+            running = downloader->running;
+
+            if (!running) {
+                break;
+            }
+
+            for (uint32_t i = 0; i < downloader->downloads_size; i++) {
+                pthread_mutex_lock(&downloader->downloads[i].lock);
+                if (downloader->downloads[i].state == IDLE) {
+                    download_index = i;
+                }
+                downloader->downloads[i].state = RUNNING; // declare the download as running so that other threads won't take it
+                pthread_mutex_unlock(&downloader->downloads[i].lock);
+            }
+        } while (0);
+
+        pthread_mutex_unlock(&downloader->lock);
+
+        if (!running) {
+            break;
+        }
+
+        // a download is found
+        if (download_index != -1) {
+            download_start(&downloader->downloads[download_index]);
+
+            download_state_t local_state;
+
+            pthread_mutex_lock(&downloader->downloads[download_index].lock);
+            local_state = downloader->downloads[download_index].state;
+            pthread_mutex_unlock(&downloader->downloads[download_index].lock);
+
+            if (local_state == DONE) {
+
+            } else if (local_state == PAUSED) {
+
+            }
+        }
+    }
+    
+    pthread_exit(NULL);
+}
+
+void downloader_cleanup(downloader_t *downloader) {
+    pthread_mutex_lock(&downloader->lock);
+    downloader->running = 0;
+    pthread_mutex_unlock(&downloader->lock);
+
+    for (uint32_t i = 0; i < DOWNLOADER_POOL_SIZE; i++) {
+        pthread_join(downloader->tid[i], NULL);
+    }
+
+    free(downloader->downloads);
+}
+
+int32_t downloader_add(downloader_t *downloader, file_t *file) {
+    download_t download;
+
+    if (-1 == download_init(&download, file)) {
+        print(LOG_ERROR, "[downloader_add] Error at download_init\n");
+        return -1;
+    }
+
+    // add download to buffer
     pthread_mutex_lock(&downloader->lock);
 
     download_t *tmp = (download_t*)malloc((1 + downloader->downloads_size) * sizeof(download_t));
@@ -108,170 +334,14 @@ int32_t download_init(downloader_t *downloader, file_t *file) {
     return 0;
 }
 
-int32_t download_cleanup(downloader_t *downloader, download_t *download) {
-}
+void print_downloader(log_t log_type, downloader_t *downloader) {
+    pthread_mutex_lock(&downloader->lock);
 
-int32_t downloader_init(downloader_t *downloader, const char *ip, const char *port) {
-    downloader->addr.sin_family = AF_INET;
-    downloader->addr.sin_addr.s_addr = htonl(inet_addr(ip));
-    downloader->addr.sin_port = htons(atoi(port));
-    
-    if (-1 == (downloader->fd = get_server_socket(&downloader->addr))) {
-        print(LOG_ERROR, "[download_init] Error at get_server_socket");
-        return -1;
+    for (uint32_t i = 0; i < downloader->downloads_size; i++) {
+        pthread_mutex_lock(&downloader->downloads[i].lock);
+        print_download(log_type, &downloader->downloads[i]);
+        pthread_mutex_unlock(&downloader->downloads[i].lock);
     }
-    
-    downloader->downloads_size = 0;
-    downloader->downloads = NULL;
-    
-    pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
-    memcpy(&downloader->lock, &init, sizeof(pthread_mutex_t));
-    memcpy(&downloader->mlock, &init, sizeof(pthread_mutex_t));
 
-    for (uint32_t i = 0; i < DOWNLOADER_POOL_SIZE; i++) {
-        pthread_create(&downloader->tid[i], NULL, (void *(*)(void*))&downloader_thread, downloader);
-    }
-}
-
-void downloader_thread(downloader_t *downloader) {
-    struct sockaddr_in client_addr;
-    socklen_t client_size = sizeof(client_addr);
-
-    // fd set of clients
-    fd_set allfd;
-    FD_ZERO(&allfd);
-    FD_SET(downloader->fd, &allfd);
-    int32_t max_fd = downloader->fd;
-    // int32_t max_fd = 0;
-
-    // fd set of listener socket
-    fd_set server_fd;
-    FD_ZERO(&server_fd);
-
-    struct timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-
-    while (1) {
-        fd_set rdfd;
-        memcpy(&rdfd, &allfd, sizeof(fd_set));
-
-        if (-1 == select(max_fd + 1, &rdfd, NULL, NULL, NULL)) {
-            print(LOG_ERROR, "[downloader_thread] Error at select\n");
-            break;
-        }
-
-        // workaround for new connections
-        // if we rely on the first select for handling new connections, the threads
-        // have no way of knowing if another thread already handled the connection
-        // so deadlock will occur
-        // thus, we make a separate set only for the server->fd and select on it
-        // with a timeout, so that way each thread can check if the server->fd
-        // connection has been handled
-        pthread_mutex_lock(&downloader->mlock);
-
-        FD_SET(downloader->fd, &server_fd); // re-add server->fd to set
-
-        if (-1 == select(downloader->fd + 1, &server_fd, NULL, NULL, &tv)) {
-            print(LOG_ERROR, "[downloader_thread] Error at select2\n");
-            break;
-        }
-
-        if (FD_ISSET(downloader->fd, &server_fd)) {
-            int32_t fd = accept(downloader->fd, (struct sockaddr*)&client_addr, &client_size);
-
-            if (-1 != fd) {
-                FD_SET(fd, &allfd);
-
-                if (fd > max_fd) max_fd = fd;
-            } else {
-                print(LOG_ERROR, "[downloader_thread] Error at accept\n");
-            }
-        }
-        
-        pthread_mutex_unlock(&downloader->mlock);
-
-        for (int32_t client_fd = 0; client_fd <= max_fd; client_fd++) {
-            if (client_fd != downloader->fd && FD_ISSET(client_fd, &rdfd)) {
-                // handle request
-                print(LOG_DEBUG, "[downloader_thread] Received new request\n");
-
-                req_header_t reqh;
-                char *msg;
-                uint32_t msg_size;
-
-                if (-1 == recv_req(client_fd, &reqh, &msg, &msg_size)) {
-                    print(LOG_ERROR, "[downloader_thread] Error at recv_req\n");
-                    shutdown(client_fd, SHUT_RDWR);
-                    close(client_fd);
-                    continue;
-                }
-
-                switch (reqh.type) {
-                case SHUTDOWN: {
-                    // TODO: shutdown downloader thread
-                    break;
-                }
-                case BLOCK: {
-                    block_t block;
-                    memcpy(&block, msg, sizeof(block_t));
-
-                    pthread_mutex_lock(&downloader->lock);
-
-                    uint32_t i;
-                    // find the file to which the block belongs
-                    for (i = 0; i < downloader->downloads_size; i++) {
-                        if (key_cmp(&downloader->downloads[i].local_file.id, &block.id) == 0) {
-                            break;
-                        }
-                    }
-
-                    // runs only once
-                    int32_t status = 0;
-                    do {
-                        int32_t fd;
-
-                        if (-1 == (fd = open(&downloader->downloads[i].local_file.path, O_RDWR))) {
-                            print(LOG_ERROR, "[BLOCK] Cannot open file\n");
-                            status = -1;
-                            break;
-                        }
-
-                        if (-1 == (lseek(fd, block.index * FILE_BLOCK_SIZE, SEEK_SET))) {
-                            print(LOG_ERROR, "[BLOCK] Error at lseek\n");
-                            status = -1;
-                            break;
-                        }
-
-                        if (-1 == write(fd, msg + sizeof(block_t), block.size)) {
-                            print(LOG_ERROR, "[BLOCK] Error at write");
-                            status = -1;
-                            break;
-                        }
-                        
-                        downloader->downloads[i].local_file.blocks[block.index] = 1;
-
-                        close(fd);
-                    } while (0);
-                    
-                    pthread_mutex_unlock(&downloader->lock);
-
-                    if (-1 == status) {
-                        
-                    } else {
-
-                    }
-
-                    break;
-                }
-                }
-            }
-        }
-    }
-    
-    pthread_exit(NULL);
-}
-
-void downloader_cleanup(downloader_t *downloader) {
-
+    pthread_mutex_unlock(&downloader->lock);
 }
