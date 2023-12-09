@@ -108,12 +108,10 @@ int32_t main(int32_t argc, char **argv) {
             } else {
                 query.ignore_id = 0;
 
-                if (!valid_key(buf)) {
+                if (-1 == key_from_text(&query.id, buf)) {
                     print(LOG, "error: invalid key format\n");
                     continue;
                 }
-
-                memcpy(&query.id, buf, sizeof(key2_t));
             }
             
             print(LOG, "name: ");
@@ -213,13 +211,12 @@ int32_t main(int32_t argc, char **argv) {
             fgets(buf, 511, stdin);
             buf[strlen(buf) - 1] = 0;
 
+            key2_t id;
 
-            if (!valid_key(buf)) {
+            if (-1 == key_from_text(&id, buf)) {
                 print(LOG, "error: invalid key format\n");
                 continue;
             }
-
-            key2_t id;
             
             if (!client.tracker) {
                 // TODO: implement download for non trackers

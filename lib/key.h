@@ -22,6 +22,9 @@ void key_from_addr(key2_t *key, struct sockaddr_in *addr);
 // hash the contents of the file, also save the size of the file in size ptr
 int32_t key_from_file(key2_t *key, int32_t fd, uint64_t *size);
 
+// transforms a text buffer into a key if possible
+int32_t key_from_text(key2_t *key, char *buf);
+
 // bitwise cmp
 // key1 < key2 -> -1
 // key1 = key2 ->  0
@@ -50,9 +53,6 @@ void key_sub_int(key2_t *key, uint32_t x);
 
 // performs key *= 2
 void key_double(key2_t *key);
-
-// checks if a buffer is a valid key
-int32_t valid_key(char *buf);
 
 void print_key(log_t log_type, key2_t *key);
 

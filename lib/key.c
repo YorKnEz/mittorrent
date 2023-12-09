@@ -121,9 +121,9 @@ void key_double(key2_t *key) {
 	}
 }
 
-int32_t valid_key(char *buf) {
+int32_t key_from_text(key2_t *key, char *buf) {
 	if (strlen(buf) != 2 * sizeof(key2_t)) {
-		return 0;
+		return -1;
 	}
 
 	for (uint32_t i = 0; i < strlen(buf); i++) {
@@ -134,11 +134,18 @@ int32_t valid_key(char *buf) {
  		}
 		
 		if (!(('0' <= buf[i] && buf[i] <= '9') || ('a' <= buf[i] && buf[i] <= 'f'))) {
-			return 0;
+			return -1;
 		}
 	}
 
-	return 1;
+	for (uint32_t i = 0; i < strlen(buf); i += 2) {
+		char val1 = buf[i] < 'A' ? buf[i] - '0' : (buf[i] < 'a' ? buf[i] - 'A' + 10 : buf[i] - 'a' + 10);
+		char val2 = buf[i + 1] < 'A' ? buf[i + 1] - '0' : (buf[i + 1] < 'a' ? buf[i + 1] - 'A' + 10 : buf[i + 1] - 'a' + 10);
+		
+		key->key[i / 2] = (val1 << 4) + val2;
+	}
+
+	return 0;
 }
 
 void print_key(log_t log_type, key2_t *key) {
