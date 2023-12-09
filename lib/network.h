@@ -12,32 +12,55 @@
 
 #include "logger.h"
 
+/*
+PROTOCOL REQUESTS
+1. Boostrap server:
+    DISCONNECT                      - completely disconnect from bootstrap server
+    CONNECT_TRACKER                 - user starts tracker
+    DISCONNECT_TRACKER              - user stops tracker
+    SEARCH                          - search files matching a query on server
+    UPLOAD                          - indexes the file for searching by others
+
+2. Chord protocol
+    PING                            - asks node if it's alive
+    FIND_NEXT                       -
+    FIND_PREV                       -
+    SET_PREV                        -
+    FIND_CLOSEST_PRECEDING_FINGER   -
+    UPDATE_FINGER_TABLE             - deprecated
+    NOTIFY                          -
+
+3. Download protocol
+    SEARCH                          - receives a torrent file from a peer
+    DOWNLOAD                        - init download process
+    BLOCK                           - request a block from a peer
+
+4. Tracker protocol
+    ADD_PEER                        - tell a tracker to add myself as a peer for the torrent file
+    MOVE_DATA                       - tell a tracker that it needs to transfer keys
+    UPLOAD                          - adds the file to it's local file list
+    SHUTDOWN                        - shut down a client thread
+*/
+
 typedef enum { 
-    // bootstrap server protocol
-    DISCONNECT,                     // completely disconnect from bootstrap server
-                                    // connect not needed
-    CONNECT_TRACKER,                // user starts tracker
-    DISCONNECT_TRACKER,             // user stops tracker
-    SEARCH,                         // search files matching a query on server
-    UPLOAD,                         // client: adds the file to it's local file list
-                                    // server: indexes the file for searching by others
-    SHUTDOWN,                       // client: shut down a client thread
-    
-    // Chord protocol
-    PING,                           // asks node if it's alive
-    FIND_NEXT,                      //
-    FIND_PREV,                      //
-    SET_PREV,                       //
-    FIND_CLOSEST_PRECEDING_FINGER,  //
+    DISCONNECT,
+    CONNECT_TRACKER,
+    DISCONNECT_TRACKER,
+    SEARCH,
+    UPLOAD,
+    SHUTDOWN,
+    PING,
+    FIND_NEXT,
+    FIND_PREV,
+    SET_PREV,
+    FIND_CLOSEST_PRECEDING_FINGER,
     /* UPDATE_FINGER_TABLE, */ 
-    NOTIFY,                         //
-    MOVE_DATA,                      // tell a tracker that it needs to transfer keys
-    
-    // Download protocol
-    DOWNLOAD,                       // init download process
-    BLOCKS,                         // server: ask peer what blocks he owns of the file
-                                    // client: tell a peer what blocks to send
-    BLOCK,                          // send a block to a peer
+    NOTIFY,
+    MOVE_DATA,
+    DOWNLOAD,
+    BLOCKS,
+    BLOCK,
+    ADD_PEER,
 } req_type_t;
 
 typedef struct {
@@ -46,8 +69,8 @@ typedef struct {
 } req_header_t;
 
 typedef enum {
-    SUCCESS,                        // request handled correctly
-    ERROR                           // something went wrong
+    SUCCESS,    // request handled correctly
+    ERROR       // something went wrong
 } res_type_t;
 
 typedef struct {

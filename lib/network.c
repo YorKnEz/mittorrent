@@ -142,6 +142,7 @@ int32_t recv_res(int32_t socket_fd, res_header_t *resh, char **msg, uint32_t *ms
 int32_t send_and_recv(int32_t socket_fd, req_type_t type, void* req, uint32_t req_size, char **res, uint32_t *res_size) {
     if (-1 == send_req(socket_fd, type, req, req_size)) {
         print(LOG_ERROR, "[send_and_recv] Error at send_req\n");
+        *res = NULL;
         return -1;
     }
 
