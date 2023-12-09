@@ -29,8 +29,7 @@ void print_query(log_t log_type, query_t *query) {
 
 // pretty print results
 void print_result(log_t log_type, query_result_t *result) {
-    // print(log_type, "id: ");
-    // print_key(log_type, &query->id);
-    // print(log_type, "\n");
-    print(log_type, "(name: %s, size: %d)\n", result->name, result->size);
+    print(log_type, "(id: ");
+    print_key(log_type, &result->id);
+    print(log_type, ", name: %s, size: %d)\n", result->name, result->size);
 }

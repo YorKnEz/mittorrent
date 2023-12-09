@@ -14,6 +14,12 @@ int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tra
         return -1;
     }
 
+    // init downlaoder module
+    if (-1 == downloader_init(&tracker->downloader)) {
+        print(LOG_ERROR, "[tracker_init] Error at downloader_init\n");
+        return -1;
+    }
+
     return 0;
 }
 
@@ -78,47 +84,6 @@ void tracker_local_server_thread(tracker_t *tracker) {
 
             if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
                 print(LOG_ERROR, "[PING] Error at send_res\n");
-                shutdown(tracker_fd, SHUT_RDWR);
-                close(tracker_fd);
-                continue;
-            }
-
-            break;
-        }
-        case DOWNLOAD: {
-            print(LOG_DEBUG, "[tracker_local_server_thread] Received DOWNLOAD\n");
-
-            // TODO: DOWNLOAD
-
-            if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
-                print(LOG_ERROR, "[DOWNLOAD] Error at send_res\n");
-                shutdown(tracker_fd, SHUT_RDWR);
-                close(tracker_fd);
-                continue;
-            }
-            
-            break;
-        }
-        case UPLOAD: {
-            print(LOG_DEBUG, "[tracker_local_server_thread] Received UPLOAD\n");
-
-            file_t file;
-            deserialize_file(&file, msg, msg_size);
-
-            pthread_mutex_lock(&tracker->lock);
-            
-            if (-1 == save_file(&file, DEFAULT_SAVE_LOCATION)) {
-                print(LOG_ERROR, "[UPLOAD] Error at save_file\n");
-                break;
-            }
-
-            file_list_add(&tracker->files, &file);
-            
-            pthread_mutex_unlock(&tracker->lock);
-
-            // send a zeroed file_t to the peer so it knows we're done sending files
-            if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
-                print(LOG_ERROR, "[UPLOAD] Error at send_res\n");
                 break;
             }
 
@@ -283,6 +248,220 @@ void tracker_local_server_thread(tracker_t *tracker) {
 
             break;
         }
+        case SEARCH: {
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received SEARCH\n");
+
+            key2_t id;
+            memcpy(&id, msg, sizeof(key2_t));
+
+            char *res = NULL;
+            uint32_t res_size = 0;
+
+            pthread_mutex_lock(&tracker->lock);
+
+            // look for the specified id in the torrent files list
+            file_node_t *p = tracker->files;
+
+            while (!res && p) {
+                if (key_cmp(&id, &p->file.id) == 0) {
+                    serialize_file(&p->file, &res, &res_size);
+
+                    break;
+                }
+
+                p = p->next;
+            }
+
+            pthread_mutex_unlock(&tracker->lock);
+
+            if (-1 == send_res(tracker_fd, SUCCESS, res, res_size)) {
+                print(LOG_ERROR, "[SEARCH] Error at send_res\n");
+                shutdown(tracker_fd, SHUT_RDWR);
+                close(tracker_fd);
+                continue;
+            }
+            
+            free(res);
+            
+            break;
+        }
+        case DOWNLOAD: {
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received DOWNLOAD\n");
+
+            key2_t id;
+            memcpy(&id, msg, sizeof(key2_t));
+
+            char *res = NULL;
+            uint32_t res_size = 0;
+
+            pthread_mutex_lock(&tracker->lock);
+
+            // look for the specified id in the local files list and the downloads list
+            do {
+                local_file_node_t *p = tracker->local_files;
+
+                while (!res && p) {
+                    if (key_cmp(&id, &p->file.id) == 0) {
+                        res_size = p->file.size / FILE_BLOCK_SIZE + (p->file.size % FILE_BLOCK_SIZE > 0);
+                        res = (char*)malloc(res_size);
+                        memset(res, 1, res_size);
+                        break;
+                    }
+                    
+                    p = p->next;
+                }
+
+                if (res) {
+                    break;
+                }
+                
+                pthread_mutex_lock(&tracker->downloader.lock);
+
+                for (uint32_t i = 0; i < tracker->downloader.downloads_size; i++) {
+                    if (key_cmp(&id, &tracker->downloader.downloads[i].local_file.id) == 0) {
+                        res_size = tracker->downloader.downloads[i].local_file.size / FILE_BLOCK_SIZE + (tracker->downloader.downloads[i].local_file.size % FILE_BLOCK_SIZE > 0);
+                        res = (char*)malloc(res_size);
+                        memset(res, 1, res_size);
+                        break;
+                    }
+                }
+                
+                pthread_mutex_unlock(&tracker->downloader.lock);
+            } while (0);
+            
+            pthread_mutex_unlock(&tracker->lock);
+
+            if (-1 == send_res(tracker_fd, SUCCESS, res, res_size)) {
+                print(LOG_ERROR, "[DOWNLOAD] Error at send_res\n");
+                free(res);
+                break;
+            }
+
+            free(res);
+            
+            break;
+        }
+        case BLOCK: {
+            // TODO: heavily inefficient
+            
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received BLOCK\n");
+
+            block_t block;
+            memcpy(&block, msg, sizeof(block_t));
+
+            local_file_t *res = NULL;
+
+            pthread_mutex_lock(&tracker->lock);
+
+            // look for the specified id in the local files list and the downloads list
+            do {
+                local_file_node_t *p = tracker->local_files;
+
+                while (!res && p) {
+                    if (key_cmp(&block.id, &p->file.id) == 0) {
+                        res = &p->file;
+                        break;
+                    }
+                    
+                    p = p->next;
+                }
+
+                if (res) {
+                    break;
+                }
+                
+                pthread_mutex_lock(&tracker->downloader.lock);
+
+                for (uint32_t i = 0; i < tracker->downloader.downloads_size; i++) {
+                    if (key_cmp(&block.id, &tracker->downloader.downloads[i].local_file.id) == 0) {
+                        res = &tracker->downloader.downloads[i].local_file;
+                        break;
+                    }
+                }
+                
+                pthread_mutex_unlock(&tracker->downloader.lock);
+            } while (0);
+            
+            pthread_mutex_unlock(&tracker->lock);
+
+            if (res) {
+                int32_t fd;
+                char *buf[FILE_BLOCK_SIZE];
+                uint32_t buf_size = 0;
+
+                if (-1 == (fd = open(res->path, O_RDONLY))) {
+                    print(LOG_ERROR, "[BLOCK] Error at open\n");
+                    break;
+                }
+
+                if (-1 == lseek(fd, block.index * FILE_BLOCK_SIZE, SEEK_SET)) {
+                    print(LOG_ERROR, "[BLOCK] Error at lseek");
+                    close(fd);
+                    break;
+                }
+
+                if (-1 == (buf_size = read(fd, buf, FILE_BLOCK_SIZE))) {
+                    print(LOG_ERROR, "[BLOCK] Error at read\n");
+                    close(fd);
+                    break;
+                }
+                
+                close(fd);
+                
+                if (-1 == send_res(tracker_fd, SUCCESS, buf, buf_size)) {
+                    print(LOG_ERROR, "[BLOCK] Error at send_res\n");
+                    break;
+                }
+            } else {
+                if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
+                    print(LOG_ERROR, "[BLOCK] Error at send_res\n");
+                    break;
+                }
+            }
+            
+            break;
+        }
+        case ADD_PEER: {
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received ADD_PEER\n");
+
+            node_remote_t peer;
+            key2_t id;
+            int32_t found = 0;
+
+            memcpy(&peer, msg, sizeof(node_remote_t));
+            memcpy(&id, msg + sizeof(node_remote_t), sizeof(key2_t));
+
+            pthread_mutex_lock(&tracker->lock);
+
+            // look for the specified id in the torrent files list
+            file_node_t *p = tracker->files;
+
+            while (p) {
+                if (key_cmp(&id, &p->file.id) == 0) {
+                    add_peer(&p->file, &peer);
+                    found = 1;
+                    break;
+                }
+
+                p = p->next;
+            }
+            
+            pthread_mutex_unlock(&tracker->lock);
+
+            if (found == 1) {
+                if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
+                    print(LOG_ERROR, "[ADD_PEER] Error at send_res\n");
+                    break;
+                }
+            } else {
+                if (-1 == send_res(tracker_fd, ERROR, INTERNAL_ERROR, strlen(INTERNAL_ERROR))) {
+                    print(LOG_ERROR, "[ADD_PEER] Error at send_res\n");
+                    break;
+                }
+            }
+
+            break;
+        }
         case MOVE_DATA: {
             print(LOG_DEBUG, "[tracker_local_server_thread] Received MOVE_DATA\n");
 
@@ -333,6 +512,31 @@ void tracker_local_server_thread(tracker_t *tracker) {
 
             break;
         }
+        case UPLOAD: {
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received UPLOAD\n");
+
+            file_t file;
+            deserialize_file(&file, msg, msg_size);
+
+            pthread_mutex_lock(&tracker->lock);
+            
+            if (-1 == save_file(&file, DEFAULT_SAVE_LOCATION)) {
+                print(LOG_ERROR, "[UPLOAD] Error at save_file\n");
+                break;
+            }
+
+            file_list_add(&tracker->files, &file);
+            
+            pthread_mutex_unlock(&tracker->lock);
+
+            // send a zeroed file_t to the peer so it knows we're done sending files
+            if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
+                print(LOG_ERROR, "[UPLOAD] Error at send_res\n");
+                break;
+            }
+
+            break;
+        }
         case SHUTDOWN: {
             print(LOG_DEBUG, "[tracker_local_server_thread] Received SHUTDOWN\n");
 
@@ -345,8 +549,6 @@ void tracker_local_server_thread(tracker_t *tracker) {
 
             if (-1 == send_res(tracker_fd, ERROR, INVALID_COMMAND, strlen(INVALID_COMMAND))) {
                 print(LOG_ERROR, "[tracker_local_server_thread] Error at send_res\n");
-                shutdown(tracker_fd, SHUT_RDWR);
-                close(tracker_fd);
                 continue;
             }
 
@@ -465,6 +667,9 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
 }
 
 int32_t tracker_cleanup(tracker_t *tracker) {
+    // shutdown downloader
+    downloader_cleanup(&tracker->downloader);
+    
     // send shutdown request to all threads
     // TODO: maybe some form of validation that the tracker wants to shutdown its threads
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
@@ -701,7 +906,7 @@ int32_t tracker_stabilize(tracker_t *tracker) {
 
 // search a file on the network based on a query
 int32_t tracker_search(tracker_t *tracker, query_t *query, int32_t server_fd, query_result_t** results, uint32_t *results_size) {
-    if (-1 == send_and_recv(server_fd, SEARCH, query, sizeof(query_t), results, results_size)) {
+    if (-1 == send_and_recv(server_fd, SEARCH, query, sizeof(query_t), (char**)results, results_size)) {
         print(LOG_ERROR, "[tracker_search] Error at send_and_recv\n");
         free(results);
         return -1;
@@ -729,10 +934,34 @@ int32_t tracker_download(tracker_t *tracker, key2_t *id) {
         return -1;
     }
 
+    if (msg == NULL) {
+        print(LOG_ERROR, "[tracker_download] File not found\n");
+        // no need to free
+        return -1;
+    }
+
+    struct {
+        node_remote_t peer;
+        key2_t id;
+    } data;
+    memcpy(&data.peer, &tracker->node, sizeof(node_remote_t));
+    memcpy(&data.id, id, sizeof(key2_t));
+
+    if (-1 == node_req(&peer, ADD_PEER, &data, sizeof(data), &msg, &msg_size)) {
+        print(LOG_ERROR, "[tracker_download] Error at node_req\n");
+        free(msg);
+        return -1;
+    }
+
     file_t file;
     deserialize_file(&file, msg, msg_size);
 
     free(msg);
+
+    if (-1 == downloader_add(&tracker->downloader, &file)) {
+        print(LOG_ERROR, "[tracker_download] Error at downloader_add\n");
+        return -1;
+    }
 
     return 0;
 }
@@ -781,8 +1010,6 @@ int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) 
     local_file_t local_file;
 
     local_file_from_file(&local_file, &file, path);
-    // we own all blocks of the file if we uploaded it
-    memset(local_file.blocks, 1, local_file.blocks_size);
 
     local_file_list_add(&tracker->local_files, &local_file);
 

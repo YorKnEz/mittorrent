@@ -195,7 +195,6 @@ int32_t main(int32_t argc, char **argv) {
             for (uint32_t i = 0; i < results_size; i++) {
                 print(LOG, "%d. ", i + 1);
                 print_result(LOG, &results[i]);
-                print(LOG, "\n");
             }
 
             free(results);
@@ -227,6 +226,12 @@ int32_t main(int32_t argc, char **argv) {
                 }
             }
             
+            continue;
+        }
+
+        if (strcmp(cmd, "download_state") == 0) {
+            print_downloader(LOG, &client.tracker->downloader);
+
             continue;
         }
 
