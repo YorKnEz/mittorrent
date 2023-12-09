@@ -53,7 +53,6 @@ void local_file_list_remove(local_file_list_t *list, key2_t *id) {
     // remove the head
     if (key_cmp(&(*list)->file.id, id) == 0) {
         *list = (*list)->next;
-        free_local_file(p);
         free(p);
         return;
     }
@@ -62,7 +61,6 @@ void local_file_list_remove(local_file_list_t *list, key2_t *id) {
         if (key_cmp(&p->next->file.id, id) == 0) {
             local_file_node_t *tmp = p->next;
             p->next = p->next->next;
-            free_local_file(tmp);
             free(tmp);
             return;
         }
@@ -82,7 +80,6 @@ void local_file_list_free(local_file_list_t *list) {
     while (p) {
         tmp = p;
         p = p->next;
-        free_local_file(tmp);
         free(tmp);
     }
 }
