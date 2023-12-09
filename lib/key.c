@@ -150,11 +150,11 @@ int32_t key_from_text(key2_t *key, char *buf) {
 
 void print_key(log_t log_type, key2_t *key) {
 	if (log_type == LOG_DEBUG) {
-		print(log_type, "%x%x..%x%x", key->key[0], key->key[1], key->key[30], key->key[31]);
+		print(log_type, "%02x%02x..%02x%02x", key->key[0], key->key[1], key->key[30], key->key[31]);
 		return;
 	}
 
 	for (int32_t i = 0; i < 32; i++) {
-		print(log_type, "%x", key->key[i]);
+		print(log_type, "%02x", key->key[i]);
 	}
 }
