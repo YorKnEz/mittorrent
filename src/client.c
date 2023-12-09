@@ -247,36 +247,6 @@ int32_t main(int32_t argc, char **argv) {
             continue;
         }
 
-        if (strcmp(cmd, "file_test") == 0) {
-            file_t file;
-
-            if (-1 == create_file(&file, "/home/yorknez/uaic/2sem1/rc/mitrorrent/src/client.c", (node_remote_t*)&client.tracker->node)) {
-                print(LOG, "error: create_file\n");
-                continue;
-            }
-            
-            print_file(LOG_DEBUG, &file);
-
-            if (-1 == save_file(&file, DEFAULT_SAVE_LOCATION)) {
-                print(LOG, "error: save_file\n");
-                continue;
-            }
-
-            if (-1 == load_file(&file)) {
-                print(LOG, "error: load_file\n");
-                continue;
-            }
-
-            print_file(LOG_DEBUG, &file);
-
-            if (-1 == delete_file(&file)) {
-                print(LOG, "error: delete_file\n");
-                continue;
-            }
-
-            continue;
-        }
-
         // regular client commands
         if (strcmp(cmd, "clear") == 0) {
             system("clear");
