@@ -940,6 +940,14 @@ int32_t tracker_download(tracker_t *tracker, key2_t *id) {
         return -1;
     }
 
+    file_t file;
+    deserialize_file(&file, msg, msg_size);
+
+    if (-1 == downloader_add(&tracker->downloader, &file)) {
+        print(LOG_ERROR, "[tracker_download] Error at downloader_add\n");
+        return -1;
+    }
+
     struct {
         node_remote_t peer;
         key2_t id;
@@ -953,15 +961,7 @@ int32_t tracker_download(tracker_t *tracker, key2_t *id) {
         return -1;
     }
 
-    file_t file;
-    deserialize_file(&file, msg, msg_size);
-
     free(msg);
-
-    if (-1 == downloader_add(&tracker->downloader, &file)) {
-        print(LOG_ERROR, "[tracker_download] Error at downloader_add\n");
-        return -1;
-    }
 
     return 0;
 }
