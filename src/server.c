@@ -11,6 +11,45 @@ void handle_error(const char* msg) {
 int32_t main() {
     server_init(&server);
 
+    while (1) {
+        char cmd_raw[512];
+        print(LOG, "\n> ");
+        fgets(cmd_raw, 511, stdin);
+        cmd_raw[strlen(cmd_raw) - 1] = 0;
+        uint32_t cmd_raw_size = strlen(cmd_raw);
+
+        cmd_t cmd;
+
+        if (-1 == cmd_parse(&cmd, cmd_raw)) {
+            print(LOG_ERROR, "error: invalid command format\n");
+            continue;
+        }
+
+        
+        
+
+        if (strcmp(cmd.name, "clear") == 0) {
+            if (cmd.args_size != 0) {
+                print(LOG, "error: invalid number of args\n");
+                continue;
+            }
+            
+            system("clear");
+            continue;
+        }
+
+        if (strcmp(cmd.name, "quit") == 0) {
+            if (cmd.args_size != 0) {
+                print(LOG, "error: invalid number of args\n");
+                continue;
+            }
+            
+            break;
+        }
+
+        print(LOG, "error: invalid command\n");
+    }
+
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_join(server.tid[i], NULL);
     }

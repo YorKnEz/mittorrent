@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "cmd_parser.h"
 #include "file.h"
 #include "key.h"
 #include "network.h"
