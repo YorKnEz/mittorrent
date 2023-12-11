@@ -127,6 +127,7 @@ int32_t main(int32_t argc, char **argv) {
             
             query_t query;
             memset(&query, 0, sizeof(query_t));
+            query.ignore_id = query.ignore_name = query.ignore_size = 1;
 
             int32_t status = 0;
 
@@ -196,6 +197,11 @@ int32_t main(int32_t argc, char **argv) {
             }
 
             if (-1 == status) {
+                continue;
+            }
+
+            if (query.ignore_id * query.ignore_name * query.ignore_size > 0) {
+                print(LOG, "error: invalid query\n");
                 continue;
             }
 
