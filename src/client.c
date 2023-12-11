@@ -239,18 +239,13 @@ int32_t main(int32_t argc, char **argv) {
         }
 
         if (strcmp(cmd.name, "download") == 0) {
-            if (!(1 <= cmd.args_size && cmd.args_size <= 2)) {
+            if (cmd.args_size != 1) {
                 print(LOG, "error: invalid number of args\n");
                 continue;
             }
 
             // download a key
             if (strcmp(cmd.args[0].flag, "-k") == 0) {
-                if (cmd.args_size != 2) {
-                    print(LOG, "error: invalid number of args\n");
-                    continue;
-                }
-
                 key2_t id;
 
                 if (-1 == key_from_text(&id, cmd.args[0].value)) {
@@ -272,11 +267,6 @@ int32_t main(int32_t argc, char **argv) {
 
             // list downloads
             if (strcmp(cmd.args[0].flag, "-l") == 0) {
-                if (cmd.args_size != 1) {
-                    print(LOG, "error: invalid number of args\n");
-                    continue;
-                }
-
                 print_downloader(LOG, &client.tracker->downloader);
 
                 continue;
