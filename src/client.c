@@ -8,6 +8,29 @@ void handle_error(const char* msg) {
     exit(1);
 }
 
+// TODO: maybe move the function and add help menus for all commands
+void print_help() {
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
+    system("clear");
+
+    print(LOG,
+        ANSI_COLOR_RED "PROLOG\n" ANSI_COLOR_RESET
+        "    This is the torrent client of the project\n\n"
+        ANSI_COLOR_RED "DESCRIPTION\n" ANSI_COLOR_RESET
+        "    The list of commands is the following\n\n"
+        ANSI_COLOR_RED "COMMANDS\n" ANSI_COLOR_RESET
+        "    " ANSI_COLOR_GREEN "help    " ANSI_COLOR_RESET " - show this message;\n\n"
+        "    " ANSI_COLOR_GREEN "tracker " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "tracker -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "search  " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "search -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "download" ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "download -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "upload  " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "upload -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "clear   " ANSI_COLOR_RESET " - clears the screen;\n\n"
+        "    " ANSI_COLOR_GREEN "quit    " ANSI_COLOR_RESET " - exit this terminal;\n\n");
+}
+
 int32_t main(int32_t argc, char **argv) {
     if (argc < 3) {
         handle_error("Usage: ./client TRACKER_IP TRACKER_PORT \n");
@@ -274,7 +297,11 @@ int32_t main(int32_t argc, char **argv) {
         }
 
         // regular client commands
-        if (strcmp(cmd, "clear") == 0) {
+        if (strcmp(cmd.name, "help") == 0) {
+            print_help();
+            
+            continue;
+        }
 
         if (strcmp(cmd.name, "clear") == 0) {
             if (cmd.args_size != 0) {
