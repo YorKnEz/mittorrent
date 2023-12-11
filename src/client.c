@@ -284,12 +284,15 @@ int32_t main(int32_t argc, char **argv) {
                 continue;
             }
 
-            if (-1 == tracker_upload(client.tracker, cmd.args[0].value, client.bootstrap_fd)) {
-                print(LOG, "error: upload error\n");
+            // upload file by path
+            if (strcmp(cmd.args[0].flag, "-p") == 0) {
+                if (-1 == tracker_upload(client.tracker, cmd.args[0].value, client.bootstrap_fd)) {
+                    print(LOG, "error: upload error\n");
+                    continue;
+                }
+
                 continue;
             }
-
-            continue;
         }
 
         // regular client commands
