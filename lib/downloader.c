@@ -235,8 +235,7 @@ int32_t downloader_init(downloader_t *downloader) {
     downloader->downloads_size = 0;
     downloader->downloads = NULL;
     
-    pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
-    memcpy(&downloader->lock, &init, sizeof(pthread_mutex_t));
+    pthread_mutex_init(&downloader->lock, NULL);
 
     downloader->running = 1;
 
@@ -307,7 +306,7 @@ void downloader_cleanup(downloader_t *downloader) {
         pthread_join(downloader->tid[i], NULL);
     }
 
-    free(downloader->downloads);
+    pthread_mutex_destroy(&downloader->lock);
 }
 
 int32_t downloader_add(downloader_t *downloader, file_t *file) {

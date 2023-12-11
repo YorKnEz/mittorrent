@@ -21,9 +21,8 @@ int32_t main() {
 
 void server_init(server_t *server) {
     // init locks
-    pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
-    memcpy(&server->lock, &init, sizeof(pthread_mutex_t));
-    memcpy(&server->mlock, &init, sizeof(pthread_mutex_t));
+    pthread_mutex_init(&server->lock, NULL);
+    pthread_mutex_init(&server->mlock, NULL);
 
     // server default address
     server->addr.sin_family = AF_INET;
@@ -312,4 +311,7 @@ void server_cleanup(server_t *server) {
     close(server->fd);
 
     list_free(&server->clients);
+
+    pthread_mutex_destroy(&server->lock);
+    pthread_mutex_destroy(&server->mlock);
 }

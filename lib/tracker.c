@@ -34,9 +34,8 @@ int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, co
         return -1;
     }
 
-    pthread_mutex_t init = PTHREAD_MUTEX_INITIALIZER;
-    memcpy(&tracker->mlock, &init, sizeof(pthread_mutex_t));
-    memcpy(&tracker->lock, &init, sizeof(pthread_mutex_t));
+    pthread_mutex_init(&tracker->mlock, NULL);
+    pthread_mutex_init(&tracker->lock, NULL);
 
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_create(&tracker->tid[i], NULL, (void *(*)(void*))tracker_local_server_thread, tracker);
@@ -693,6 +692,9 @@ int32_t tracker_cleanup(tracker_t *tracker) {
 
     shutdown(tracker->fd, SHUT_RDWR);
     close(tracker->fd);
+
+    pthread_mutex_destroy(&tracker->mlock);
+    pthread_mutex_destroy(&tracker->lock);
 
     // before leaving, we must send the keys that we handle to our successor
     while (tracker->files) {
