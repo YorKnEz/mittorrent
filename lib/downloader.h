@@ -3,15 +3,18 @@
 
 #include <pthread.h>
 #include <sys/select.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 
 #include "dht.h"
 #include "download.h"
+#include "download_list.h"
 #include "file.h"
 #include "local_file.h"
 #include "network.h"
+
+
+// TODO: move downlaoder to client
 
 #define DOWNLOADER_POOL_SIZE 2 // split the download process across threads
 
@@ -21,9 +24,7 @@ typedef struct {
 
     pthread_t tid[DOWNLOADER_POOL_SIZE];
 
-    // dynamic buffer of download jobs
-    uint32_t downloads_size;
-    download_t *downloads;
+    download_list_t downloads;
 } downloader_t;
 
 int32_t downloader_init(downloader_t *downloader);
