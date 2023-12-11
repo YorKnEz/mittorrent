@@ -258,6 +258,8 @@ int32_t main(int32_t argc, char **argv) {
         if (strcmp(cmd, "quit") == 0) {
             break;
         }
+
+        print(LOG, "error: invalid command\n");
     }
 
     client_cleanup(&client);
