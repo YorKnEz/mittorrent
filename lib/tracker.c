@@ -316,9 +316,10 @@ void tracker_local_server_thread(tracker_t *tracker) {
                 
                 pthread_mutex_lock(&tracker->downloader.lock);
 
-                for (uint32_t i = 0; i < tracker->downloader.downloads_size; i++) {
-                    if (key_cmp(&id, &tracker->downloader.downloads[i].local_file.id) == 0) {
-                        res_size = tracker->downloader.downloads[i].local_file.size / FILE_BLOCK_SIZE + (tracker->downloader.downloads[i].local_file.size % FILE_BLOCK_SIZE > 0);
+                for (uint32_t i = 0; i < tracker->downloader.downloads.size; i++) {
+                    // no need for download lock because this is read-only
+                    if (key_cmp(&id, &tracker->downloader.downloads.buffer[i]->local_file.id) == 0) {
+                        res_size = tracker->downloader.downloads.buffer[i]->local_file.size / FILE_BLOCK_SIZE + (tracker->downloader.downloads.buffer[i]->local_file.size % FILE_BLOCK_SIZE > 0);
                         res = (char*)malloc(res_size);
                         memset(res, 1, res_size);
                         break;
@@ -371,9 +372,9 @@ void tracker_local_server_thread(tracker_t *tracker) {
                 
                 pthread_mutex_lock(&tracker->downloader.lock);
 
-                for (uint32_t i = 0; i < tracker->downloader.downloads_size; i++) {
-                    if (key_cmp(&block.id, &tracker->downloader.downloads[i].local_file.id) == 0) {
-                        res = &tracker->downloader.downloads[i].local_file;
+                for (uint32_t i = 0; i < tracker->downloader.downloads.size; i++) {
+                    if (key_cmp(&block.id, &tracker->downloader.downloads.buffer[i]->local_file.id) == 0) {
+                        res = &tracker->downloader.downloads.buffer[i]->local_file;
                         break;
                     }
                 }

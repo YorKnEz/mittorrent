@@ -133,9 +133,9 @@ int32_t recv_res(int32_t socket_fd, res_header_t *resh, char **msg, uint32_t *ms
         *msg = (char*) malloc (resh->size);
         memset(*msg, 0, resh->size);
 
-    if (-1 == read_full(socket_fd, *msg, resh->size)) {
-        free(*msg);
-        return -1;
+        if (-1 == read_full(socket_fd, *msg, resh->size)) {
+            free(*msg);
+            return -1;
         }
     } else {
         *msg = NULL;

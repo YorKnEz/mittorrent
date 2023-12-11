@@ -26,10 +26,8 @@ int32_t create_file(file_t *file, const char *path, node_remote_t *initial_peer)
 
     memset(file->path, 0, 512);
 
-    // init list
-    file->peers = NULL;
-    // TODO: could optimize this but whatever
     // add the first peer to the list
+    file->peers = NULL;
     list_add(&file->peers, initial_peer);
 
     close(fd);
