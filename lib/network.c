@@ -127,13 +127,18 @@ int32_t send_res(int32_t socket_fd, res_type_t type, void* msg, uint32_t msg_siz
 int32_t recv_res(int32_t socket_fd, res_header_t *resh, char **msg, uint32_t *msg_size) {
     if (-1 == read_full(socket_fd, resh, sizeof(*resh))) return -1;
 
-    *msg = (char*) malloc (resh->size);
-    memset(*msg, 0, resh->size);
     *msg_size = resh->size;
+    
+    if (resh->size) {
+        *msg = (char*) malloc (resh->size);
+        memset(*msg, 0, resh->size);
 
     if (-1 == read_full(socket_fd, *msg, resh->size)) {
         free(*msg);
         return -1;
+        }
+    } else {
+        *msg = NULL;
     }
     
     return 0;
