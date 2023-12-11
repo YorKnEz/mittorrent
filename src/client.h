@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "tracker.h"
+#include "cmd_parser.h"
 
 typedef struct {
     // the connection to the bootstrap server

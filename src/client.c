@@ -22,151 +22,158 @@ int32_t main(int32_t argc, char **argv) {
         cmd_raw[strlen(cmd_raw) - 1] = 0;
         uint32_t cmd_raw_size = strlen(cmd_raw);
 
-        // parse command
-        char *cmd = strtok(cmd_raw, " ");
-        char *arg1 = strtok(NULL, " ");
-        char *arg2 = strtok(NULL, " ");
+        cmd_t cmd;
 
-        if (cmd == NULL) {
+        if (-1 == cmd_parse(&cmd, cmd_raw)) {
+            print(LOG_ERROR, "error: invalid command format\n");
             continue;
         }
 
-        // tracker commands
-        if (strcmp(cmd, "start_tracker") == 0) {
-            if (-1 == client_start_tracker(&client, argv[1], argv[2])) {
-                print(LOG, "error: cannot start tracker\n");
-                continue;
-            }
-            
-            continue;
-        }
-
-        if (strcmp(cmd, "stop_tracker") == 0) {
-            if (!client.tracker) {
-                print(LOG, "error: you must enable the tracker\n");
+        if (strcmp(cmd.name, "tracker") == 0) {
+            if (cmd.args_size != 1) {
+                print(LOG, "error: invalid number of args\n");
                 continue;
             }
 
-            if (-1 == client_stop_tracker(&client)) {
-                print(LOG, "error: cannot stop tracker\n");
-                continue;
-            }
-            
-            continue;
-        }
-
-        if (strcmp(cmd, "state") == 0) {
-            if (!client.tracker) {
-                print(LOG, "error: you must enable the tracker\n");
-                continue;
-            }
-
-            tracker_state(client.tracker);
-            
-            continue;
-        }
-        
-        if (strcmp(cmd, "stabilize") == 0) {
-            if (!client.tracker) {
-                print(LOG, "error: you must enable the tracker\n");
-                continue;
-            }
-            
-            int32_t status = tracker_stabilize(client.tracker);
-
-            if (-1 == status) {
-                print(LOG, "error: stabilize error\n");
-                continue;
-            } else if (1 == status) {
-                print(LOG, "error: stopping tracker, rejoin network\n");
-                
-                if (-1 == client_stop_tracker(&client)) {
-                   print(LOG, "error: cannot stop tracker\n");
+            if (strcmp(cmd.args[0].flag, "-start") == 0) {
+                if (-1 == client_start_tracker(&client, argv[1], argv[2])) {
+                    print(LOG, "error: cannot start tracker\n");
                     continue;
                 }
 
                 continue;
             }
 
-            continue;
+            if (strcmp(cmd.args[0].flag, "-stop") == 0) {
+                if (!client.tracker) {
+                    print(LOG, "error: you must enable the tracker\n");
+                    continue;
+                }
+
+                if (-1 == client_stop_tracker(&client)) {
+                    print(LOG, "error: cannot stop tracker\n");
+                    continue;
+                }
+                
+                continue;
+            }
+
+            if (strcmp(cmd.args[0].flag, "-state") == 0) {
+                if (!client.tracker) {
+                    print(LOG, "error: you must enable the tracker\n");
+                    continue;
+                }
+
+                tracker_state(client.tracker);
+                
+                continue;
+            }
+
+            if (strcmp(cmd.args[0].flag, "-stab") == 0) {
+                if (!client.tracker) {
+                    print(LOG, "error: you must enable the tracker\n");
+                    continue;
+                }
+                
+                int32_t status = tracker_stabilize(client.tracker);
+
+                if (-1 == status) {
+                    print(LOG, "error: stabilize error\n");
+                    continue;
+                } else if (1 == status) {
+                    print(LOG, "error: stopping tracker, rejoin network\n");
+                    
+                    if (-1 == client_stop_tracker(&client)) {
+                    print(LOG, "error: cannot stop tracker\n");
+                        continue;
+                    }
+
+                    continue;
+                }
+
+                continue;
+            }
         }
 
         // search and download have implementations for both trackers and non-trackers
-        if (strcmp(cmd, "search") == 0) {
-            // get the query
+        if (strcmp(cmd.name, "search") == 0) {
+            if (!(1 <= cmd.args_size && cmd.args_size <= 3)) {
+                print(LOG, "error: invalid number of args\n");
+                continue;
+            }
+            
             query_t query;
             memset(&query, 0, sizeof(query_t));
-            char buf[512];
-            
-            print(LOG, "id: ");
-            memset(buf, 0, 512);
-            fgets(buf, 511, stdin);
-            buf[strlen(buf) - 1] = 0;
-            
-            if (strlen(buf) == 1 && buf[0] == '-') {
-                query.ignore_id = 1;
-            } else {
-                query.ignore_id = 0;
 
-                if (-1 == key_from_text(&query.id, buf)) {
-                    print(LOG, "error: invalid key format\n");
-                    continue;
-                }
-            }
-            
-            print(LOG, "name: ");
-            memset(buf, 0, 512);
-            fgets(buf, 511, stdin);
-            buf[strlen(buf) - 1] = 0;
-            
-            if (strlen(buf) == 1 && buf[0] == '-') {
-                query.ignore_name = 1;
-            } else {
-                query.ignore_name = 0;
+            int32_t status = 0;
 
-                memcpy(query.name, buf, strlen(buf));
-            }
+            for (uint32_t i = 0; i < cmd.args_size; i++) {
+                char *buf = cmd.args[i].value;
+                
+                // query.id
+                if (strcmp(cmd.args[i].flag, "-i") == 0) {
+                    query.ignore_id = 0;
 
-            print(LOG, "size: ");
-            memset(buf, 0, 512);
-            fgets(buf, 511, stdin);
-            buf[strlen(buf) - 1] = 0;
-            
-            if (strlen(buf) == 1 && buf[0] == '-') {
-                query.ignore_size = 1;
-            } else {
-                query.ignore_size = 0;
-
-                // check if it's a number
-                int32_t valid_size = 1;
-
-                for (uint32_t i = 0; i < strlen(buf); i++) {
-                    if (!('0' <= buf[i] && buf[i] <= '9')) {
-                        valid_size = 0;
-                        break;
-                    }
-                }
-
-                query.size = 0;
-
-                for (uint32_t i = 0; valid_size && i < strlen(buf); i++) {
-                    uint32_t new_size = query.size * 10 + buf[i] - '0';
-                    
-                    // check for overflow
-                    if (new_size < query.size) {
-                        valid_size = 0;
+                    if (-1 == key_from_text(&query.id, buf)) {
+                        print(LOG, "error: invalid key format\n");
+                        status = -1;
                         break;
                     }
                     
-                    query.size = new_size;
+                    continue;
                 }
+                
+                // query.name
+                if (strcmp(cmd.args[i].flag, "-n") == 0) {
+                    query.ignore_name = 0;
 
-                if (!valid_size) {
-                    print(LOG, "error: invalid size format\n");
+                    strcpy(query.name, buf);
+                    
                     continue;
                 }
 
-                // query.size is initialized
+                // query.size
+                if (strcmp(cmd.args[i].flag, "-s") == 0) {
+                    query.ignore_size = 0;
+
+                    // check if it's a number
+                    int32_t valid_size = 1;
+
+                    for (uint32_t i = 0; i < strlen(buf); i++) {
+                        if (!('0' <= buf[i] && buf[i] <= '9')) {
+                            valid_size = 0;
+                            break;
+                        }
+                    }
+
+                    query.size = 0;
+
+                    for (uint32_t i = 0; valid_size && i < strlen(buf); i++) {
+                        uint32_t new_size = query.size * 10 + buf[i] - '0';
+                        
+                        // check for overflow
+                        if (new_size < query.size) {
+                            valid_size = 0;
+                            break;
+                        }
+                        
+                        query.size = new_size;
+                    }
+
+                    if (!valid_size) {
+                        print(LOG, "error: invalid size format\n");
+                        status = -1;
+                        break;
+                    }
+
+                    // query.size is initialized
+                    
+                    continue;
+                }
+            }
+
+            if (-1 == status) {
+                continue;
             }
 
             // print_query(LOG_DEBUG, &query);
@@ -202,46 +209,63 @@ int32_t main(int32_t argc, char **argv) {
             continue;
         }
 
-        if (strcmp(cmd, "download") == 0) {
-            char buf[512];
-            
-            print(LOG, "key: ");
-            memset(buf, 0, 512);
-            fgets(buf, 511, stdin);
-            buf[strlen(buf) - 1] = 0;
-
-            key2_t id;
-
-            if (-1 == key_from_text(&id, buf)) {
-                print(LOG, "error: invalid key format\n");
+        if (strcmp(cmd.name, "download") == 0) {
+            if (!(1 <= cmd.args_size && cmd.args_size <= 2)) {
+                print(LOG, "error: invalid number of args\n");
                 continue;
             }
-            
-            if (!client.tracker) {
-                // TODO: implement download for non trackers
-            } else {
-                if (-1 == tracker_download(client.tracker, &id)) {
-                    print(LOG, "error: download error\n");
+
+            // download a key
+            if (strcmp(cmd.args[0].flag, "-k") == 0) {
+                if (cmd.args_size != 2) {
+                    print(LOG, "error: invalid number of args\n");
                     continue;
                 }
+
+                key2_t id;
+
+                if (-1 == key_from_text(&id, cmd.args[0].value)) {
+                    print(LOG, "error: invalid key format\n");
+                    continue;
+                }
+                
+                if (!client.tracker) {
+                    // TODO: implement download for non trackers
+                } else {
+                    if (-1 == tracker_download(client.tracker, &id)) {
+                        print(LOG, "error: download error\n");
+                        continue;
+                    }
+                }
+                
+                continue;
             }
-            
-            continue;
+
+            // list downloads
+            if (strcmp(cmd.args[0].flag, "-l") == 0) {
+                if (cmd.args_size != 1) {
+                    print(LOG, "error: invalid number of args\n");
+                    continue;
+                }
+
+                print_downloader(LOG, &client.tracker->downloader);
+
+                continue;
+            }
         }
 
-        if (strcmp(cmd, "download_state") == 0) {
-            print_downloader(LOG, &client.tracker->downloader);
-
-            continue;
-        }
-
-        if (strcmp(cmd, "upload") == 0) {
+        if (strcmp(cmd.name, "upload") == 0) {
             if (!client.tracker) {
                 print(LOG, "error: you must enable the tracker\n");
                 continue;
             }
 
-            if (-1 == tracker_upload(client.tracker, arg1, client.bootstrap_fd)) {
+            if (cmd.args_size != 1) {
+                print(LOG, "error: invalid number of args\n");
+                continue;
+            }
+
+            if (-1 == tracker_upload(client.tracker, cmd.args[0].value, client.bootstrap_fd)) {
                 print(LOG, "error: upload error\n");
                 continue;
             }
@@ -251,11 +275,23 @@ int32_t main(int32_t argc, char **argv) {
 
         // regular client commands
         if (strcmp(cmd, "clear") == 0) {
+
+        if (strcmp(cmd.name, "clear") == 0) {
+            if (cmd.args_size != 0) {
+                print(LOG, "error: invalid number of args\n");
+                continue;
+            }
+            
             system("clear");
             continue;
         }
 
-        if (strcmp(cmd, "quit") == 0) {
+        if (strcmp(cmd.name, "quit") == 0) {
+            if (cmd.args_size != 0) {
+                print(LOG, "error: invalid number of args\n");
+                continue;
+            }
+            
             break;
         }
 
