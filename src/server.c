@@ -1,4 +1,5 @@
 #include "server.h"
+#include "tracker.h"
 
 server_t server;
 
@@ -6,6 +7,28 @@ void handle_error(const char* msg) {
     print(LOG_ERROR, msg);
     server_cleanup(&server);
     exit(1);
+}
+
+void print_help() {
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
+    system("clear");
+
+    print(LOG,
+        ANSI_COLOR_RED "PROLOG\n" ANSI_COLOR_RESET
+        "    This is the torrent client of the project\n\n"
+        ANSI_COLOR_RED "DESCRIPTION\n" ANSI_COLOR_RESET
+        "    The list of commands is the following\n\n"
+        ANSI_COLOR_RED "COMMANDS\n" ANSI_COLOR_RESET
+        "    " ANSI_COLOR_GREEN "help    " ANSI_COLOR_RESET " - show this message;\n\n"
+        "    " ANSI_COLOR_GREEN "tracker " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "tracker -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "search  " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "search -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "download" ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "download -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "upload  " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "upload -h" ANSI_COLOR_RESET ";\n\n"
+        "    " ANSI_COLOR_GREEN "clear   " ANSI_COLOR_RESET " - clears the screen;\n\n"
+        "    " ANSI_COLOR_GREEN "quit    " ANSI_COLOR_RESET " - exit this terminal;\n\n");
 }
 
 int32_t main() {
@@ -27,6 +50,11 @@ int32_t main() {
 
         
         
+        if (strcmp(cmd.name, "help") == 0) {
+            print_help();
+            
+            continue;
+        }
 
         if (strcmp(cmd.name, "clear") == 0) {
             if (cmd.args_size != 0) {
@@ -146,8 +174,6 @@ void server_thread(server_t *server) {
 
                 if (-1 == recv_req(client_fd, &reqh, &msg, &msg_size)) {
                     print(LOG_ERROR, "Error at recv_req\n");
-                    shutdown(client_fd, SHUT_RDWR);
-                    close(client_fd);
                     continue;
                 }
 
@@ -160,10 +186,11 @@ void server_thread(server_t *server) {
 
                     if (-1 == send_res(client_fd, SUCCESS, NULL, 0)) {
                         print(LOG_ERROR, "Error at send_res\n");
-                        shutdown(client_fd, SHUT_RDWR);
-                        close(client_fd);
                         break;
                     }
+
+                    shutdown(client_fd, SHUT_RDWR);
+                    close(client_fd);
 
                     break;
                 }
@@ -208,8 +235,6 @@ void server_thread(server_t *server) {
 
                     if (-1 == send_res(client_fd, SUCCESS, data, data_size)) {
                         print(LOG_ERROR, "Error at send_res\n");
-                        shutdown(client_fd, SHUT_RDWR);
-                        close(client_fd);
                         break;
                     }
 
@@ -239,8 +264,6 @@ void server_thread(server_t *server) {
 
                     if (-1 == send_res(client_fd, SUCCESS, NULL, 0)) {
                         print(LOG_ERROR, "Error at send_res\n");
-                        shutdown(client_fd, SHUT_RDWR);
-                        close(client_fd);
                         break;
                     }
 
@@ -291,8 +314,6 @@ void server_thread(server_t *server) {
 
                     if (-1 == send_res(client_fd, SUCCESS, results, results_size)) {
                         print(LOG_ERROR, "Error at send_res\n");
-                        shutdown(client_fd, SHUT_RDWR);
-                        close(client_fd);
                         break;
                     }
 
@@ -316,11 +337,71 @@ void server_thread(server_t *server) {
 
                     if (-1 == send_res(client_fd, SUCCESS, NULL, 0)) {
                         print(LOG_ERROR, "Error at send_res\n");
-                        shutdown(client_fd, SHUT_RDWR);
-                        close(client_fd);
                         break;
                     }
                     
+                    break;
+                }
+                case SEARCH_PEER: {
+                    print(LOG_DEBUG, "SEARCH_PEER received\n");
+                    
+                    key2_t id;
+                    memcpy(&id, msg, sizeof(key2_t));
+
+                    int32_t status = 0;
+                        
+                    pthread_mutex_lock(&server->lock);
+
+                    char *res;
+                    uint32_t res_size;
+
+                    do {
+                        // find the peer that handles id
+                        if (-1 == node_req(&server->client_read->node, FIND_NEXT, &id, sizeof(key2_t), &res, &res_size)) {
+                            print(LOG_ERROR, "[SEARCH_PEER] Error at node_find_next\n");
+                            status = -1;
+                            break;
+                        }
+                            
+                        if (res == NULL) {
+                            break;
+                        }
+
+                        node_remote_t peer;
+                        memcpy(&peer, res, sizeof(node_remote_t));
+
+                        free(res);
+
+                        // we know for certain the node exists, ask it if the key id has a value
+                        if (-1 == node_req(&peer, SEARCH, &id, sizeof(key2_t), &res, &res_size)) {
+                            print(LOG_ERROR, "[SEARCH_PEER] Error at node_req\n");
+                            free(msg);
+                            status = -1;
+                            break;
+                        }
+
+                        if (msg == NULL) {
+                            print(LOG_ERROR, "[SEARCH_PEER] File not found\n");
+                            // no need to free
+                            status = -1;
+                            break;
+                        }
+                     } while (0);
+
+                    pthread_mutex_unlock(&server->lock);
+
+                    if (-1 == status) {
+                        if (-1 == send_res(client_fd, ERROR, INTERNAL_ERROR, strlen(INTERNAL_ERROR))) {
+                            print(LOG_ERROR, "Error at send_res\n");
+                        }
+                    } else {
+                        if (-1 == send_res(client_fd, SUCCESS, res, res_size)) {
+                            print(LOG_ERROR, "Error at send_res\n");
+                        }
+                    }
+
+                    free(res);
+                        
                     break;
                 }
                 default: {

@@ -19,6 +19,7 @@ PROTOCOL REQUESTS
     CONNECT_TRACKER                 - user starts tracker
     DISCONNECT_TRACKER              - user stops tracker
     SEARCH                          - search files matching a query on server
+    SEARCH_PEER                     - given a file id, ask peers who owns it
     UPLOAD                          - indexes the file for searching by others
 
 2. Chord protocol
@@ -61,6 +62,7 @@ typedef enum {
     BLOCKS,
     BLOCK,
     ADD_PEER,
+    SEARCH_PEER
 } req_type_t;
 
 typedef struct {
