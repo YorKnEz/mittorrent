@@ -254,7 +254,10 @@ int32_t main(int32_t argc, char **argv) {
                 }
                 
                 if (!client.tracker) {
-                    // TODO: implement download for non trackers
+                    if (-1 == client_download(&client, &id)) {
+                        print(LOG, "error: download error\n");
+                        continue;
+                    }                    
                 } else {
                     if (-1 == tracker_download(client.tracker, &id)) {
                         print(LOG, "error: download error\n");
@@ -267,7 +270,7 @@ int32_t main(int32_t argc, char **argv) {
 
             // list downloads
             if (strcmp(cmd.args[0].flag, "-l") == 0) {
-                print_downloader(LOG, &client.tracker->downloader);
+                print_downloader(LOG, &client.downloader);
 
                 continue;
             }
@@ -331,6 +334,11 @@ int32_t main(int32_t argc, char **argv) {
 void client_init(client_t *client) {
     client_init_bootstrap_server_connection(client);
     client->tracker = NULL; // client is not a tracker yet
+
+    // init downloader module
+    if (-1 == downloader_init(&client->downloader)) {
+        handle_error("[tracker_init] Error at downloader_init\n");
+    }
 }
 
 void client_init_bootstrap_server_connection(client_t *client) {
@@ -345,6 +353,9 @@ void client_init_bootstrap_server_connection(client_t *client) {
 }
 
 void client_cleanup(client_t *client) {
+    // shutdown downloader
+    downloader_cleanup(&client->downloader);
+    
     if (client->tracker) {
         client_stop_tracker(client);
     }
@@ -380,6 +391,7 @@ int32_t client_start_tracker(client_t *client, const char *tracker_ip, const cha
         return -1;
     }
 
+    client->tracker->downloader = &client->downloader;
     return 0;
 }
 
@@ -402,6 +414,35 @@ int32_t client_stop_tracker(client_t *client) {
 
     free(client->tracker);
     client->tracker = NULL;
+
+    return 0;
+}
+int32_t client_download(client_t *client, key2_t *id) {
+    char *msg;
+    uint32_t msg_size;
+
+    // we know for certain the node exists, ask it if the key id has a value
+    if (-1 == send_and_recv(client->bootstrap_fd, SEARCH_PEER, id, sizeof(key2_t), &msg, &msg_size)) {
+        print(LOG_ERROR, "[client_download] Error at send_and_recv\n");
+        free(msg);
+        return -1;
+    }
+
+    if (msg == NULL) {
+        print(LOG_ERROR, "[client_download] File not found\n");
+        // no need to free
+        return -1;
+    }
+
+    file_t file;
+    deserialize_file(&file, msg, msg_size);
+
+    if (-1 == downloader_add(&client->downloader, &file)) {
+        print(LOG_ERROR, "[client_download] Error at downloader_add\n");
+        return -1;
+    }
+
+    free(msg);
 
     return 0;
 }

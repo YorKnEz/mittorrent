@@ -14,12 +14,6 @@ int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tra
         return -1;
     }
 
-    // init downlaoder module
-    if (-1 == downloader_init(&tracker->downloader)) {
-        print(LOG_ERROR, "[tracker_init] Error at downloader_init\n");
-        return -1;
-    }
-
     return 0;
 }
 
@@ -314,19 +308,19 @@ void tracker_local_server_thread(tracker_t *tracker) {
                     break;
                 }
                 
-                pthread_mutex_lock(&tracker->downloader.lock);
+                pthread_mutex_lock(&tracker->downloader->lock);
 
-                for (uint32_t i = 0; i < tracker->downloader.downloads.size; i++) {
+                for (uint32_t i = 0; i < tracker->downloader->downloads.size; i++) {
                     // no need for download lock because this is read-only
-                    if (key_cmp(&id, &tracker->downloader.downloads.buffer[i]->local_file.id) == 0) {
-                        res_size = tracker->downloader.downloads.buffer[i]->local_file.size / FILE_BLOCK_SIZE + (tracker->downloader.downloads.buffer[i]->local_file.size % FILE_BLOCK_SIZE > 0);
+                    if (key_cmp(&id, &tracker->downloader->downloads.buffer[i]->local_file.id) == 0) {
+                        res_size = tracker->downloader->downloads.buffer[i]->local_file.size / FILE_BLOCK_SIZE + (tracker->downloader->downloads.buffer[i]->local_file.size % FILE_BLOCK_SIZE > 0);
                         res = (char*)malloc(res_size);
                         memset(res, 1, res_size);
                         break;
                     }
                 }
                 
-                pthread_mutex_unlock(&tracker->downloader.lock);
+                pthread_mutex_unlock(&tracker->downloader->lock);
             } while (0);
             
             pthread_mutex_unlock(&tracker->lock);
@@ -370,16 +364,16 @@ void tracker_local_server_thread(tracker_t *tracker) {
                     break;
                 }
                 
-                pthread_mutex_lock(&tracker->downloader.lock);
+                pthread_mutex_lock(&tracker->downloader->lock);
 
-                for (uint32_t i = 0; i < tracker->downloader.downloads.size; i++) {
-                    if (key_cmp(&block.id, &tracker->downloader.downloads.buffer[i]->local_file.id) == 0) {
-                        res = &tracker->downloader.downloads.buffer[i]->local_file;
+                for (uint32_t i = 0; i < tracker->downloader->downloads.size; i++) {
+                    if (key_cmp(&block.id, &tracker->downloader->downloads.buffer[i]->local_file.id) == 0) {
+                        res = &tracker->downloader->downloads.buffer[i]->local_file;
                         break;
                     }
                 }
                 
-                pthread_mutex_unlock(&tracker->downloader.lock);
+                pthread_mutex_unlock(&tracker->downloader->lock);
             } while (0);
             
             pthread_mutex_unlock(&tracker->lock);
@@ -667,9 +661,6 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
 }
 
 int32_t tracker_cleanup(tracker_t *tracker) {
-    // shutdown downloader
-    downloader_cleanup(&tracker->downloader);
-    
     // send shutdown request to all threads
     // TODO: maybe some form of validation that the tracker wants to shutdown its threads
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
@@ -946,7 +937,7 @@ int32_t tracker_download(tracker_t *tracker, key2_t *id) {
     file_t file;
     deserialize_file(&file, msg, msg_size);
 
-    if (-1 == downloader_add(&tracker->downloader, &file)) {
+    if (-1 == downloader_add(tracker->downloader, &file)) {
         print(LOG_ERROR, "[tracker_download] Error at downloader_add\n");
         return -1;
     }

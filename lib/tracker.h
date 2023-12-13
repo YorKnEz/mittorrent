@@ -34,7 +34,7 @@ typedef struct {
     file_list_t files;                  // list of torrent files stored by the tracker
     local_file_list_t local_files;      // list of files that the tracker can transfer upon a download request
 
-    downloader_t downloader;            // downloader module
+    downloader_t *downloader;           // a pointer to the downloader module of the client
 } tracker_t;
 
 int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, int32_t boostrap_server_fd);
