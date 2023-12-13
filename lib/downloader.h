@@ -12,6 +12,7 @@
 #include "file.h"
 #include "local_file.h"
 #include "network.h"
+#include "error.h"
 
 
 // TODO: move downlaoder to client

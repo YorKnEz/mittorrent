@@ -6,6 +6,7 @@
 
 #include "dht.h"
 #include "local_file.h"
+#include "error.h"
 
 typedef struct {
     node_remote_t peer;

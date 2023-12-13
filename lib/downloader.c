@@ -1,6 +1,8 @@
 #include "downloader.h"
 
 int32_t downloader_init(downloader_t *downloader) {
+    int32_t status = 0;
+
     download_list_init(&downloader->downloads);
     
     pthread_mutex_init(&downloader->lock, NULL);
@@ -10,6 +12,8 @@ int32_t downloader_init(downloader_t *downloader) {
     for (uint32_t i = 0; i < DOWNLOADER_POOL_SIZE; i++) {
         pthread_create(&downloader->tid[i], NULL, (void *(*)(void*))&downloader_thread, downloader);
     }
+
+    return status;
 }
 
 void downloader_thread(downloader_t *downloader) {
@@ -117,9 +121,8 @@ int32_t downloader_add(downloader_t *downloader, file_t *file) {
 
         download_t download;
 
-        if (-1 == download_init(&download, file)) {
+        if (CHECK(download_init(&download, file))) {
             print(LOG_ERROR, "[downloader_add] Error at download_init\n");
-            status = -1;
             break;
         }
 
@@ -133,8 +136,11 @@ int32_t downloader_add(downloader_t *downloader, file_t *file) {
 }
 
 int32_t downloader_pause(downloader_t *downloader, uint32_t index) {
+    int32_t status = 0;
+
     if (!(0 <= index && index < downloader->downloads.size)) {
-        return -1;
+        status = -1;
+        return status;
     }
     
     download_t *download = downloader->downloads.buffer[index];
@@ -144,12 +150,13 @@ int32_t downloader_pause(downloader_t *downloader, uint32_t index) {
     if (download->state == RUNNING) {
         download->state = PAUSED;
     } else {
-        print(LOG, "error: download is not running\n");
+        print(LOG_ERROR, "[downloader_pause] Download is not running\n");
+        status = ERR_DOWNLOAD_NOT_RUNNING;
     }
 
     pthread_mutex_unlock(&download->lock);
 
-    return 0;
+    return status;
 }
 
 void print_downloader(log_t log_type, downloader_t *downloader) {

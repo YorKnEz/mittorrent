@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "logger.h"
+#include "error.h"
 
 /*
 PROTOCOL REQUESTS

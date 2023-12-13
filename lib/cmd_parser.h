@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "logger.h"
+#include "error.h"
 
 /*
 given a buffer like:

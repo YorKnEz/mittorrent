@@ -1,21 +1,24 @@
 #include "file.h"
 
 int32_t create_file(file_t *file, const char *path, node_remote_t *initial_peer) {
+    int32_t status = 0;
+
     // open the file
     int32_t fd;
 
-    if (-1 == (fd = open(path, O_RDONLY, 0))) {
+    if (CHECK(fd = open(path, O_RDONLY, 0))) {
         print(LOG_ERROR, "[create_file] Cannot open file\n");
-        return -1;
+        status = ERR_INVALID_PATH;
+        return ERR_INVALID_PATH;
     }
     
     // init magic bytes
     memcpy(file->magic, MAGIC, 8);
 
     // get file id and size
-    if (-1 == key_from_file(&file->id, fd, &file->size)) {
+    if (CHECK(key_from_file(&file->id, fd, &file->size))) {
         print(LOG_ERROR, "[create_file] Error at key_from_file\n");
-        return -1;
+        return status;
     }
 
     // extract name from path
@@ -32,16 +35,19 @@ int32_t create_file(file_t *file, const char *path, node_remote_t *initial_peer)
 
     close(fd);
 
-    return 0;
+    return status;
 }
 
 int32_t save_file(file_t *file, const char *path) {
+    int32_t status = 0;
+
     // get fullname of file as it will be saved on disk
     uint32_t torrent_path_size = strlen(path) + strlen(file->name) + 1 + 2 * sizeof(key2_t) + 1 + strlen(EXT_NAME);
 
     if (torrent_path_size >= 512) {
-        print(LOG_ERROR, "[save_file] Filename is too large");
-        return -1;
+        print(LOG_ERROR, "[save_file] File path is too large");
+        status = ERR_PATH_TOO_LARGE;
+        return status;
     }
     
     strcpy(file->path, path);
@@ -53,63 +59,61 @@ int32_t save_file(file_t *file, const char *path) {
     strcat(file->path, ".");
     strcat(file->path, EXT_NAME);
 
-    print(LOG_DEBUG, "[save_file] %s\n", file->path);
-
     int32_t fd;
-    if (-1 == (fd = open(file->path, O_CREAT | O_TRUNC | O_RDWR, 0666))) {
+    if (CHECK(fd = open(file->path, O_CREAT | O_TRUNC | O_RDWR, 0666))) {
         print(LOG_ERROR, "[save_file] Error at creating out file\n");
-        return -1;
+        return status;
     }
 
-    if (-1 == ftruncate(fd, sizeof(file_t))) {
+    if (CHECK(ftruncate(fd, sizeof(file_t)))) {
         print(LOG_ERROR, "[save_file] Error at truncating file\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // save magic bytes to disk
-    if (-1 == write(fd, file->magic, 8)) {
+    if (CHECK(write(fd, file->magic, 8))) {
         print(LOG_ERROR, "[save_file] Error at write\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // save file id to disk
-    if (-1 == write(fd, &file->id, sizeof(key2_t))) {
+    if (CHECK(write(fd, &file->id, sizeof(key2_t)))) {
         print(LOG_ERROR, "[save_file] Error at write\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // save file name to disk
-    if (-1 == write(fd, file->name, 512)) {
+    if (CHECK(write(fd, file->name, 512))) {
         print(LOG_ERROR, "[save_file] Error at write\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // save file path to disk
-    if (-1 == write(fd, file->path, 512)) {
+    if (CHECK(write(fd, file->path, 512))) {
         print(LOG_ERROR, "[save_file] Error at write\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // save file size to disk
-    if (-1 == write(fd, &file->size, sizeof(uint64_t))) {
+    if (CHECK(write(fd, &file->size, sizeof(uint64_t)))) {
         print(LOG_ERROR, "[save_file] Error at write\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // save peers list to disk
     node_t *p = file->peers;
 
     while (p) {
-        if (-1 == write(fd, &p->node, sizeof(node_remote_t))) {
+        if (CHECK(write(fd, &p->node, sizeof(node_remote_t)))) {
             print(LOG_ERROR, "[save_file] Error at write\n");
             close(fd);
-            return -1;
+            return status;
         }
 
         p = p->next;
@@ -117,55 +121,59 @@ int32_t save_file(file_t *file, const char *path) {
 
     close(fd);
 
-    return 0;
+    return status;
 }
 
 int32_t load_file(file_t *file) {
+    int32_t status = 0;
+
     int32_t fd;
-    if (-1 == (fd = open(file->path, O_RDONLY, 0))) {
+    if (CHECK(fd = open(file->path, O_RDONLY, 0))) {
         print(LOG_ERROR, "[load_file] Error at opening file\n");
-        return -1;
+        status = ERR_CANNOT_OPEN;
+        return status;
     }
 
     // load magic bytes from disk
-    if (-1 == read(fd, file->magic, 8)) {
+    if (CHECK(read(fd, file->magic, 8))) {
         print(LOG_ERROR, "[load_file] Error at read\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     if (strcmp(MAGIC, file->magic)) {
         print(LOG_ERROR, "[load_file] Invalid file\n");
         close(fd);
-        return -1;
+        status = ERR_INVALID_FILE;
+        return status;
     }
 
     // load file id from disk
-    if (-1 == read(fd, &file->id, sizeof(key2_t))) {
+    if (CHECK(read(fd, &file->id, sizeof(key2_t)))) {
         print(LOG_ERROR, "[load_file] Error at read\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // load file name from disk
-    if (-1 == read(fd, file->name, 512)) {
+    if (CHECK(read(fd, file->name, 512))) {
         print(LOG_ERROR, "[load_file] Error at read\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // load file name from disk
-    if (-1 == read(fd, file->path, 512)) {
+    if (CHECK(read(fd, file->path, 512))) {
         print(LOG_ERROR, "[load_file] Error at read\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // load file size from disk
-    if (-1 == read(fd, &file->size, sizeof(uint64_t))) {
+    if (CHECK(read(fd, &file->size, sizeof(uint64_t)))) {
         print(LOG_ERROR, "[load_file] Error at read\n");
         close(fd);
-        return -1;
+        return status;
     }
 
     // load peers list from disk
@@ -173,10 +181,10 @@ int32_t load_file(file_t *file) {
     int32_t read_bytes;
 
     while ((read_bytes = read(fd, &peer, sizeof(node_remote_t)))) {
-        if (-1 == read_bytes) {
+        if (CHECK(read_bytes)) {
             print(LOG_ERROR, "[load_file] Error at read\n");
             close(fd);
-            return -1;
+            return status;
         }
 
         add_peer(file, &peer);
@@ -184,32 +192,39 @@ int32_t load_file(file_t *file) {
 
     close(fd);
     
-    return 0;
+    return status;
 }
 
 int32_t delete_file(file_t *file) {
+    int32_t status = 0;
+
     int32_t fd;
-    if (-1 == (fd = open(file->path, O_RDONLY, 0))) {
+    if (CHECK(fd = open(file->path, O_RDONLY, 0))) {
         print(LOG_ERROR, "[load_file] Error at opening file\n");
-        return -1;
+        status = ERR_CANNOT_OPEN;
+        return status;
     }
 
     if (strcmp(MAGIC, file->magic)) {
         print(LOG_ERROR, "[load_file] Invalid file\n");
-        return -1;
+        status = ERR_INVALID_FILE;
+        return status;
     }
 
     close(fd);
     
     remove(file->path);
 
-    return 0;
+    return status;
 }
 
 int32_t print_file(log_t log_type, file_t *file) {
+    int32_t status = 0;
+
     if (strcmp(MAGIC, file->magic)) {
         print(LOG_ERROR, "[load_file] Invalid file\n");
-        return -1;
+        status = ERR_INVALID_FILE;
+        return status;
     }
 
     print(log_type, "id: ");
@@ -220,7 +235,7 @@ int32_t print_file(log_t log_type, file_t *file) {
     print(log_type, "peers:\n");
     print_list(log_type, &file->peers);
 
-    return 0;
+    return status;
 }
 
 // serialize file contents in order to be written on the network

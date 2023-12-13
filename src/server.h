@@ -28,12 +28,12 @@ typedef struct {
     file_list_t uploads;
 } server_t;
 
-void server_init(server_t *server);
+int32_t server_init(server_t *server);
 
 // the server thread uses select to handle requests
 // this is done in order to keep alive the connections with the clients
 void server_thread(server_t *server);
 
-void server_cleanup(server_t *server);
+int32_t server_cleanup(server_t *server);
 
 #endif

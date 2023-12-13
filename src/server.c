@@ -32,7 +32,12 @@ void print_help() {
 }
 
 int32_t main() {
-    server_init(&server);
+    int32_t status = 0;
+
+    if (CHECK(server_init(&server))) {
+        ERR(status, "cannot initialize server\n");
+        exit(-1);
+    }
 
     while (1) {
         char cmd_raw[512];
@@ -43,12 +48,10 @@ int32_t main() {
 
         cmd_t cmd;
 
-        if (-1 == cmd_parse(&cmd, cmd_raw)) {
-            print(LOG_ERROR, "error: invalid command format\n");
+        if (CHECK(cmd_parse(&cmd, cmd_raw))) {
+            ERR(status, "invalid command format");
             continue;
         }
-
-        
         
         if (strcmp(cmd.name, "help") == 0) {
             print_help();
@@ -58,7 +61,7 @@ int32_t main() {
 
         if (strcmp(cmd.name, "clear") == 0) {
             if (cmd.args_size != 0) {
-                print(LOG, "error: invalid number of args\n");
+                ERR_GENERIC("invalid number of args");
                 continue;
             }
             
@@ -68,25 +71,31 @@ int32_t main() {
 
         if (strcmp(cmd.name, "quit") == 0) {
             if (cmd.args_size != 0) {
-                print(LOG, "error: invalid number of args\n");
+                ERR_GENERIC("invalid number of args");
                 continue;
             }
             
             break;
         }
 
-        print(LOG, "error: invalid command\n");
+        ERR_GENERIC("invalid command");
     }
 
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_join(server.tid[i], NULL);
     }
 
-    server_cleanup(&server);
+    if (CHECK(server_cleanup(&server))) {
+        ERR(status, "cannot stop server\n");
+        exit(-1);
+    }
+
     exit(0);
 }
 
-void server_init(server_t *server) {
+int32_t server_init(server_t *server) {
+    int32_t status = 0;
+
     // init locks
     pthread_mutex_init(&server->lock, NULL);
     pthread_mutex_init(&server->mlock, NULL);
@@ -96,13 +105,16 @@ void server_init(server_t *server) {
     server->addr.sin_addr.s_addr = BOOTSTRAP_SERVER_IP;
     server->addr.sin_port = htons(BOOTSTRAP_SERVER_PORT);
 
-    if (-1 == (server->fd = get_server_socket(&server->addr))) {
-        handle_error("Error at get_server_socket");
+    if (CHECK(server->fd = get_server_socket(&server->addr))) {
+        print(LOG_ERROR, "[server_init] Error at get_server_socket\n");
+        return status;
     }
 
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_create(&server->tid[i], NULL, (void *(*)(void*))&server_thread, server);
     }
+
+    return status;
 }
 
 void server_thread(server_t *server) {
@@ -426,7 +438,9 @@ void server_thread(server_t *server) {
     pthread_exit(NULL);
 }
 
-void server_cleanup(server_t *server) {
+int32_t server_cleanup(server_t *server) {
+    int32_t status = 0;
+
     shutdown(server->fd, SHUT_RDWR);
     close(server->fd);
 
@@ -434,4 +448,6 @@ void server_cleanup(server_t *server) {
 
     pthread_mutex_destroy(&server->lock);
     pthread_mutex_destroy(&server->mlock);
+
+    return status;
 }

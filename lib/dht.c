@@ -1,74 +1,80 @@
 #include "dht.h"
 
 int32_t node_req(node_remote_t *node, req_type_t type, void *req, uint32_t req_size, char **res, uint32_t *res_size) {
+    int32_t status = 0;
+
     // connect to node
     int32_t fd;
 
-    if (-1 == (fd = get_client_socket(&node->addr))) {
+    if (CHECK((fd = get_client_socket(&node->addr)))) {
         print(LOG_ERROR, "[node_req] Error at get_client_socket\n");
         *res = NULL;
-        return -1;
+        return status;
     }
 
-    if (-1 == send_and_recv(fd, type, req, req_size, res, res_size)) {
+    if (CHECK(send_and_recv(fd, type, req, req_size, res, res_size))) {
         print(LOG_ERROR, "[node_req] Error at send_and_recv\n");
         shutdown(fd, SHUT_RDWR);
         close(fd);
-        return -1;
+        return status;
     }
 
     shutdown(fd, SHUT_RDWR);
     close(fd);
 
-    return 0;
+    return status;
 }
 
 // ask node to find the successor of id
 int32_t node_find_next(node_local_t *node, key2_t *id, node_remote_t *res) {
+    int32_t status = 0;
+
     // asked of successor of myself
     if (key_cmp(&node->id, id) == 0) {
         memcpy(res, &node->finger[0].node, sizeof(node_remote_t));
-        return 0;
+        return status;
     }
 
     // forward the request until successor is found
     node_remote_t prev;
-    if (-1 == node_find_prev(node, id, &prev)) {
+    if (CHECK(node_find_prev(node, id, &prev))) {
         print(LOG_ERROR, "[node_find_next] Error at node_find_prev\n");
-        return -1;
+        return status;
     }
     // ask for successor of prev
-    if (-1 == node_find_next_remote(node, &prev, &prev.id, res)) {
+    if (CHECK(node_find_next_remote(node, &prev, &prev.id, res))) {
         print(LOG_ERROR, "[node_find_next] Error at node_find_next_remote\n");
-        return -1;
+        return status;
     }
 
-    return 0;
+    return status;
 }
 int32_t node_find_next_remote(node_local_t *node, node_remote_t *fwd_node, key2_t *id, node_remote_t *res) {
+    int32_t status = 0;
+
     // check if the request isnt't actually a local one
     if (key_cmp(&node->id, &fwd_node->id) == 0) {
-        if (-1 == node_find_next(node, id, res)) {
+        if (CHECK(node_find_next(node, id, res))) {
             print(LOG_ERROR, "[node_find_next_remote] Error at node_find_next\n");
-            return -1;
+            return status;
         }
 
-        return 0;
+        return status;
     }
     
     char *msg;
     uint32_t msg_size;
     
-    if (-1 == node_req(fwd_node, FIND_NEXT, id, sizeof(key2_t), &msg, &msg_size)) {
+    if (CHECK(node_req(fwd_node, FIND_NEXT, id, sizeof(key2_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[node_find_next_remote] Error at node_req\n");
-        return -1;
+        return status;
     }
 
     memcpy(res, msg, sizeof(node_remote_t));
 
     free(msg);
 
-    return 0;
+    return status;
 }
 
 // ask node to find the predecessor of id
@@ -76,11 +82,14 @@ int32_t node_find_next_remote(node_local_t *node, node_remote_t *fwd_node, key2_
 // in the implementation provided by Chord, they use a while
 // in the case of this implementation each node forwards the request and responds after it has received the answer from the chain
 int32_t node_find_prev(node_local_t *node, key2_t *id, node_remote_t *res) {
+    int32_t status = 0;
+
     // asked of predecessor of myself
     if (key_cmp(&node->id, id) == 0) {
         if (!node->prev_initialized) {
             print(LOG_ERROR, "[node_find_prev] Prev is uninitalized\n");
-            return -1;
+            status = -1;
+            return status;
         }
 
         memcpy(res, &node->prev, sizeof(node_remote_t));
@@ -93,78 +102,86 @@ int32_t node_find_prev(node_local_t *node, key2_t *id, node_remote_t *res) {
     memcpy(&next, &node->finger[0].node, sizeof(node_remote_t));
 
     while (!key_in(id, &current.id, 0, &next.id, 1)) {
-        if (-1 == node_find_closest_preceding_remote(node, &current, id, &current)) {
+        if ((status = node_find_closest_preceding_remote(node, &current, id, &current)) != 0) {
             print(LOG_ERROR, "[node_find_prev] Error at node_find_closest_preceding_remote\n");
-            return -1;
+            return status;
         }
 
-        if (-1 == node_find_next_remote(node, &current, &current.id, &next)) {
+        if (CHECK(node_find_next_remote(node, &current, &current.id, &next))) {
             print(LOG_ERROR, "[node_find_prev] Error at node_find_next_remote\n");
-            return -1;
+            return status;
         }
     }
 
     memcpy(res, &current, sizeof(node_remote_t));
 
-    return 0;
+    return status;
 }
 int32_t node_find_prev_remote(node_local_t *node, node_remote_t *fwd_node, key2_t *id, node_remote_t *res) {
+    int32_t status = 0;
+
     // check if the request isnt't actually a local one
     if (key_cmp(&node->id, &fwd_node->id) == 0) {
-        if (-1 == node_find_prev(node, id, res)) {
+        if (CHECK(node_find_prev(node, id, res))) {
             print(LOG_ERROR, "[node_find_prev_remote] Error at node_find_prev\n");
-            return -1;
+            return status;
         }
 
-        return 0;
+        return status;
     }
 
     char *msg;
     uint32_t msg_size;
     
-    if (-1 == node_req(fwd_node, FIND_PREV, id, sizeof(key2_t), &msg, &msg_size)) {
+    if (CHECK(node_req(fwd_node, FIND_PREV, id, sizeof(key2_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[node_find_prev_remote] Error at node_req\n");
-        return -1;
+        return status;
     }
 
     memcpy(res, msg, sizeof(node_remote_t));
 
     free(msg);
 
-    return 0;
+    return status;
 }
 
 // set the prev field of node
 int32_t node_set_prev(node_local_t *node, node_remote_t *new_prev) {
+    int32_t status = 0;
+
     memcpy(&node->prev, new_prev, sizeof(node_remote_t));
     node->prev_initialized = 1;
 
-    return 0;
+    return status;
 }
 int32_t node_set_prev_remote(node_local_t *node, node_remote_t *fwd_node, node_remote_t *new_prev) {
+    int32_t status = 0;
+
     // check if the request isnt't actually a local one
     if (key_cmp(&node->id, &fwd_node->id) == 0) {
         node_set_prev(node, new_prev);
 
-        return 0;
+        return status;
     }
     
     char *msg;
     uint32_t msg_size;
     
     // response doesn't matter
-    if (-1 == node_req(fwd_node, SET_PREV, new_prev, sizeof(node_remote_t), &msg, &msg_size)) {
+    if (CHECK(node_req(fwd_node, SET_PREV, new_prev, sizeof(node_remote_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[node_set_prev] Error at node_req\n");
-        return -1;
+        return status;
     }
 
     free(msg);
 
-    return 0;
+    return status;
 }
 
 // find closest finger of node preceding id
 int32_t node_find_closest_preceding(node_local_t *node, key2_t *id, node_remote_t *res) {
+    int32_t status = 0;
+
     for (int32_t i = KEY_BITS - 1; i >= 0; i--) {
         if (!node->finger[i].initialized) {
             continue;
@@ -172,37 +189,40 @@ int32_t node_find_closest_preceding(node_local_t *node, key2_t *id, node_remote_
 
         if (key_in(&node->finger[i].node.id, &node->id, 0, id, 0)) {
             memcpy(res, &node->finger[i].node, sizeof(node_remote_t));
-            return 0;
+            return status;
         }
     }
 
     print(LOG_ERROR, "[node_find_closest_preceding] Not found\n");
-    return -1;
+    status = -1;
+    return status;
 }
 int32_t node_find_closest_preceding_remote(node_local_t *node, node_remote_t *fwd_node, key2_t *id, node_remote_t *res) {
+    int32_t status = 0;
+
     // check if the request isnt't actually a local one
     if (key_cmp(&node->id, &fwd_node->id) == 0) {
-        if (-1 == node_find_closest_preceding(node, id, res)) {
+        if (CHECK(node_find_closest_preceding(node, id, res))) {
             print(LOG_ERROR, "[node_find_closest_preceding_remote] Error at node_find_closest_preceding\n");
-            return -1;
+            return status;
         }
 
-        return 0;
+        return status;
     }
 
     char *msg;
     uint32_t msg_size;
     
-    if (-1 == node_req(fwd_node, FIND_CLOSEST_PRECEDING_FINGER, id, sizeof(key2_t), &msg, &msg_size)) {
+    if (CHECK(node_req(fwd_node, FIND_CLOSEST_PRECEDING_FINGER, id, sizeof(key2_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[node_find_closest_preceding_remote] Error at node_req\n");
-        return -1;
+        return status;
     }
 
     memcpy(res, msg, sizeof(node_remote_t));
 
     free(msg);
 
-    return 0;
+    return status;
 }
 
 
@@ -343,14 +363,11 @@ int32_t node_update_finger_table_remote(node_remote_t *node, node_remote_t *peer
     }
 
     free(msg);
-
-    return 0;
-}
-*/
-
 // node joined the network
 // peer is an arbitrary node in the network
 int32_t node_join(node_local_t *node, node_remote_t *peer) {
+    int32_t status = 0;
+
     // initialize fingers state
     // pow2 = 2^0
     key2_t pow2;
@@ -370,16 +387,16 @@ int32_t node_join(node_local_t *node, node_remote_t *peer) {
     node->prev_initialized = 0;
 
     if (peer) {
-        if (-1 == node_find_next_remote(node, peer, &node->id, &node->finger[0].node)) {
+        if (CHECK(node_find_next_remote(node, peer, &node->id, &node->finger[0].node))) {
             print(LOG_ERROR, "[node_join] Error at node_find_next_remote\n");
-            return -1;
+            return status;
         }
 
         node->finger[0].initialized = 1; // node->finger[0] has been initalized
 
-        if (-1 == node_notify_remote(node, &node->finger[0].node, (node_remote_t*)node)) {
+        if (CHECK(node_notify_remote(node, &node->finger[0].node, (node_remote_t*)node))) {
             print(LOG_ERROR, "[node_join] Error at node_notify_remote\n");
-            return -1;
+            return status;
         }
 
         // ask my successor to send me the files he owns
@@ -390,32 +407,36 @@ int32_t node_join(node_local_t *node, node_remote_t *peer) {
         node_set_prev(node, (node_remote_t*)node);
     }
 
-    return 0;
+    return status;
 }
 
 // periodically verify n's immediate successor, and tell the successor about n
 int32_t node_stabilize(node_local_t *node) {
+    int32_t status = 0;
+
     node_remote_t prev;
 
-    if (-1 == node_find_prev_remote(node, &node->finger[0].node, &node->finger[0].node.id, &prev)) {
+    if (CHECK(node_find_prev_remote(node, &node->finger[0].node, &node->finger[0].node.id, &prev))) {
         print(LOG_ERROR, "[node_stabilize] Error at node_find_prev_remote\n");
-        return -1;
+        return status;
     }
 
     if (key_in(&prev.id, &node->id, 0, &node->finger[0].node.id, 0)) {
         memcpy(&node->finger[0].node, &prev, sizeof(node_remote_t));
     }
 
-    if (-1 == node_notify_remote(node, &node->finger[0].node, (node_remote_t*)node)) {
+    if (CHECK(node_notify_remote(node, &node->finger[0].node, (node_remote_t*)node))) {
         print(LOG_ERROR, "[node_stabilize] Error at node_notify_remote\n");
-        return -1;
+        return status;
     }
 
-    return 0;
+    return status;
 }
 
 // peer thinks it might be our predecessor
 int32_t node_notify(node_local_t *node, node_remote_t *peer) {
+    int32_t status = 0;
+
     // check if my prev is alive/valid first
     if (node->prev_initialized == 1) {
         char *msg;
@@ -431,53 +452,55 @@ int32_t node_notify(node_local_t *node, node_remote_t *peer) {
 
     if (!node->prev_initialized || key_in(&peer->id, &node->prev.id, 0, &node->id, 0)) {
         node_set_prev(node, peer);
-
-        return 1; // tells tracker to send the keys
     }
 
-    return 0; // tells tracker to not move anything
+    return status;
 }
 int32_t node_notify_remote(node_local_t *node, node_remote_t *fwd_node, node_remote_t *peer) {
+    int32_t status = 0;
+
     // check if the request isnt't actually a local one
     if (key_cmp(&node->id, &fwd_node->id) == 0) {
-        if (-1 == node_notify(node, peer)) {
+        if (CHECK(node_notify(node, peer))) {
             print(LOG_ERROR, "[node_notify_remote] Error at node_notify\n");
-            return -1;
+            return status;
         }
 
-        return 0;
+        return status;
     }
 
     char *msg;
     uint32_t msg_size;
     
     // response is useless
-    if (-1 == node_req(fwd_node, NOTIFY, peer, sizeof(node_remote_t), &msg, &msg_size)) {
+    if (CHECK(node_req(fwd_node, NOTIFY, peer, sizeof(node_remote_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[node_notify_remote] Error at node_req\n");
-        return -1;
+        return status;
     }
 
     free(msg);
 
-    return 0;
+    return status;
 }
 
 // periodically refresh finger table entries
 int32_t node_fix_fingers(node_local_t *node) {
+    int32_t status = 0;
+
     // some random seed
     srand(node->id.key[2]);
 
     int32_t i;
     while ((i = rand() % KEY_BITS) == 0);
 
-    if (-1 == node_find_next(node, &node->finger[i].start, &node->finger[i].node)) {
+    if (CHECK(node_find_next(node, &node->finger[i].start, &node->finger[i].node))) {
         print(LOG_ERROR, "[node_fix_fingers] Error at node_find_next\n");
-        return -1;
+        return status;
     }
 
     node->finger[i].initialized = 1;
 
-    return 0;
+    return status;
 }
 
 // pretty print node_remote_t

@@ -8,6 +8,7 @@
 #include "key.h"
 #include "dht.h"
 #include "node_list.h"
+#include "error.h"
 
 #define MAGIC "HART\0\0\0\0"
 #define EXT_NAME "torrent"

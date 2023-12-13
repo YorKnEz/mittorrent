@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "sha256.h"
+#include "error.h"
 
 #define KEY_SIZE SHA256_BLOCK_SIZE
 #define KEY_BITS 8 * SHA256_BLOCK_SIZE

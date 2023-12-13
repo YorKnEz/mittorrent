@@ -1,6 +1,8 @@
 #include "download.h"
 
 int32_t download_init(download_t *download, file_t *file) {
+    int32_t status = 0;
+
     pthread_mutex_init(&download->lock, NULL);
     
     download->state = IDLE;
@@ -17,34 +19,37 @@ int32_t download_init(download_t *download, file_t *file) {
     int32_t fd;
     struct stat info;
 
-    if (-1 == stat(path, &info)) {
-        print(LOG, "error: invalid path\n");
-        return -1;
+    if (CHECK(stat(path, &info))) {
+        print(LOG_ERROR, "[download_init] Invalid path\n");
+        status = ERR_INVALID_PATH;
+        return status;
     }
 
     if (!S_ISDIR(info.st_mode)) {
-        print(LOG, "error: not a directory path\n");
-        return -1;
+        print(LOG_ERROR, "[download_init] Not a directory path\n");
+        status = ERR_DOWNLOAD_NOT_A_DIR;
+        return status;
     }
 
     strcat(path, "/");
     strcat(path, file->name);
 
     if (0 == access(path, F_OK)) {
-        print(LOG, "error: file already exists\n");
-        return -1;
+        print(LOG_ERROR, "[download_init] File already exists\n");
+        status = ERR_DOWNLOAD_FILE_EXISTS;
+        return status;
     }
 
-    if (-1 == (fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0666))) {
+    if (CHECK(fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0666))) {
         print(LOG_ERROR, "[download_init] Error at open\n");
-        return -1;
+        return status;
     }
 
-    if (-1 == ftruncate(fd, file->size)) {
+    if (CHECK(ftruncate(fd, file->size))) {
         print(LOG_ERROR, "[download_init] Error at ftruncate\n");
         remove(path);
         close(fd);
-        return -1;
+        return status;
     }
 
     close(fd);
@@ -58,7 +63,7 @@ int32_t download_init(download_t *download, file_t *file) {
 
     download_init_peers(download, file);
 
-    return 0;
+    return status;
 }
 
 void download_init_peers(download_t *download, file_t *file) {
@@ -102,11 +107,13 @@ void download_init_peers(download_t *download, file_t *file) {
 }
 
 int32_t download_start(download_t *download) {
+    int32_t status = 0;
+
     // open the file
     int32_t fd;
-    if (-1 == (fd = open(download->local_file.path, O_RDWR))) {
+    if (CHECK(fd = open(download->local_file.path, O_RDWR))) {
         print(LOG_ERROR, "[download_start] Error at open\n");
-        return -1;
+        return status;
     }
     
     // download can be started at this point
@@ -150,18 +157,18 @@ int32_t download_start(download_t *download) {
                     }
 
                     if (msg == NULL) {
-                        print(LOG_ERROR, "[BLOCK] Block not found\n");
+                        print(LOG_ERROR, "[download_start] Block not found\n");
                         // no need to free
                         continue;
                     }
 
                     if (-1 == (lseek(fd, i * FILE_BLOCK_SIZE, SEEK_SET))) {
-                        print(LOG_ERROR, "[BLOCK] Error at lseek\n");
+                        print(LOG_ERROR, "[download_start] Error at lseek\n");
                         continue;
                     }
 
                     if (-1 == write(fd, msg, msg_size)) {
-                        print(LOG_ERROR, "[BLOCK] Error at write");
+                        print(LOG_ERROR, "[download_start] Error at write");
                         continue;
                     }
                     
@@ -202,15 +209,19 @@ int32_t download_start(download_t *download) {
     
     close(fd);
 
-    return 0;
+    return status;
 }
 
 int32_t download_cleanup(download_t *download) {
+    int32_t status = 0;
+
     for (uint32_t i = 0; i < download->peers_size; i++) {
         free(download->peers[i].blocks);
     }
     free(download->peers);
     pthread_mutex_destroy(&download->lock);
+
+    return status;
 }
 
 void print_download(log_t log_type, download_t *download) {

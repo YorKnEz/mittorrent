@@ -15,9 +15,9 @@ typedef struct {
     tracker_t *tracker;                 // tracker module
 } client_t;
 
-void client_init(client_t *client);
-void client_init_bootstrap_server_connection(client_t *client);
-void client_cleanup(client_t *client);
+int32_t client_init(client_t *client);
+int32_t client_init_bootstrap_server_connection(client_t *client);
+int32_t client_cleanup(client_t *client);
 
 int32_t client_start_tracker(client_t *client, const char *tracker_ip, const char *tracker_port);
 int32_t client_stop_tracker(client_t *client);

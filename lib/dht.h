@@ -6,6 +6,7 @@
 #include "key.h"
 #include "logger.h"
 #include "network.h"
+#include "error.h"
 
 // data of a remote node
 typedef struct {

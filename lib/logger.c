@@ -5,6 +5,10 @@ void print(log_t log_type, const char* fmt, ...) {
         return;
     }
 
+    if (log_type == LOG_ERROR && ENABLE_ERRORS != 1) {
+        return;
+    }
+
     va_list args;
     va_start(args, fmt);
 

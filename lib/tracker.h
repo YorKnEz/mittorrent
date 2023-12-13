@@ -13,6 +13,7 @@
 #include "file_list.h"
 #include "local_file_list.h"
 #include "downloader.h"
+#include "error.h"
 
 #define THREAD_POOL_SIZE 2
 

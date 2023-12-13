@@ -1,31 +1,35 @@
 #include "tracker.h"
 
 int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, int32_t boostrap_server_fd) {
+    int32_t status = 0;
+
     tracker->files = NULL;
     tracker->local_files = NULL;
     
-    if (-1 == tracker_init_local_server(tracker, tracker_ip, tracker_port)) {
+    if (CHECK(tracker_init_local_server(tracker, tracker_ip, tracker_port))) {
         print(LOG_ERROR, "[tracker_init] Error at tracker_init_local_server\n");
-        return -1;
+        return status;
     }
 
-    if (-1 == tracker_init_dht_connection(tracker, boostrap_server_fd)) {
+    if (CHECK(tracker_init_dht_connection(tracker, boostrap_server_fd))) {
         print(LOG_ERROR, "[tracker_init] Error at tracker_init_dht_connection\n");
-        return -1;
+        return status;
     }
 
-    return 0;
+    return status;
 }
 
 int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port) {
+    int32_t status = 0;
+
     // bind to some address
     tracker->addr.sin_family = AF_INET;
     tracker->addr.sin_addr.s_addr = inet_addr(tracker_ip);
     tracker->addr.sin_port = htons(atoi(tracker_port));
 
-    if (-1 == (tracker->fd = get_server_socket(&tracker->addr))) {
+    if (CHECK(tracker->fd = get_server_socket(&tracker->addr))) {
         print(LOG_ERROR, "[tracker_init_local_server] Error at get_server_socket\n");
-        return -1;
+        return status;
     }
 
     pthread_mutex_init(&tracker->mlock, NULL);
@@ -35,7 +39,7 @@ int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, co
         pthread_create(&tracker->tid[i], NULL, (void *(*)(void*))tracker_local_server_thread, tracker);
     }
 
-    return 0;
+    return status;
 }
 
 void tracker_local_server_thread(tracker_t *tracker) {
@@ -559,6 +563,8 @@ void tracker_local_server_thread(tracker_t *tracker) {
 }
 
 int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
+    int32_t status = 0;
+
     // initialize key
     key_from_addr(&tracker->node.id, &tracker->addr);
 
@@ -568,10 +574,10 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
     char *msg;
     uint32_t msg_size;
 
-    if (-1 == send_and_recv(bootstrap_fd, CONNECT_TRACKER, &tracker->node, sizeof(node_remote_t), &msg, &msg_size)) {
+    if (CHECK(send_and_recv(bootstrap_fd, CONNECT_TRACKER, &tracker->node, sizeof(node_remote_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[tracker_init_dht_connection] Error at send_and_recv\n");
         free(msg);
-        return -1;
+        return status;
     }
 
     node_remote_t *peer = NULL;
@@ -590,10 +596,10 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
 
     free(msg);
 
-    if (-1 == node_join(&tracker->node, peer)) {
+    if (CHECK(node_join(&tracker->node, peer))) {
         print(LOG_ERROR, "[tracker_init_dht_connection] Error at node_join\n");
         free(peer);
-        return -1;
+        return status;
     }
 
     print(LOG_DEBUG, "[tracker_init_dht_connection] Joined network successfully\n");
@@ -604,17 +610,17 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
         // connect to node
         int32_t fd;
 
-        if (-1 == (fd = get_client_socket(&tracker->node.finger[0].node.addr))) {
+        if (CHECK(fd = get_client_socket(&tracker->node.finger[0].node.addr))) {
             print(LOG_ERROR, "[tracker_init_dht_connection] Error at get_client_socket\n");
             free(peer);
-            return -1;
+            return status;
         }
 
-        if (-1 == send_req(fd, MOVE_DATA, &tracker->node.id, sizeof(key2_t))) {
+        if (CHECK(send_req(fd, MOVE_DATA, &tracker->node.id, sizeof(key2_t)))) {
             print(LOG_ERROR, "[tracker_init_dht_connection] Error at connect\n");
             close(fd);
             free(peer);
-            return -1;
+            return status;
         }
 
         res_header_t resh;
@@ -657,23 +663,25 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
 
     free(peer);
 
-    return 0;
+    return status;
 }
 
 int32_t tracker_cleanup(tracker_t *tracker) {
+    int32_t status = 0;
+
     // send shutdown request to all threads
     // TODO: maybe some form of validation that the tracker wants to shutdown its threads
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         int32_t fd;
 
-        if (-1 == (fd = get_client_socket(&tracker->addr))) {
+        if (CHECK(fd = get_client_socket(&tracker->addr))) {
             print(LOG_ERROR, "[tracker_cleanup] Error at get_client_socket\n");
-            return -1;
+            return status;
         }
 
-        if (-1 == send_req(fd, SHUTDOWN, NULL, 0)) {
+        if (CHECK(send_req(fd, SHUTDOWN, NULL, 0))) {
             print(LOG_ERROR, "[tracker_cleanup] Error at send_req\n");
-            return -1;
+            return status;
         }
     }
     
@@ -698,10 +706,10 @@ int32_t tracker_cleanup(tracker_t *tracker) {
         char *msg;
         uint32_t msg_size;
         
-        if (-1 == node_req(&tracker->node.finger[0].node, UPLOAD, file_ser, file_ser_size, &msg, &msg_size)) {
+        if (CHECK(node_req(&tracker->node.finger[0].node, UPLOAD, file_ser, file_ser_size, &msg, &msg_size))) {
             print(LOG_ERROR, "[tracker_upload] Error at node_req\n");
             free(file_ser);
-            return -1;
+            return status;
         }
 
         free(msg);
@@ -712,7 +720,7 @@ int32_t tracker_cleanup(tracker_t *tracker) {
 
     local_file_list_free(&tracker->local_files);
 
-    return 0;
+    return status;
 }
 
 
@@ -781,6 +789,8 @@ void tracker_state(tracker_t *tracker) {
 }
 
 int32_t tracker_stabilize(tracker_t *tracker) {
+    int32_t status = 0;
+
     pthread_mutex_lock(&tracker->lock);
 
     // check all nodes to see if they're still alive
@@ -809,9 +819,9 @@ int32_t tracker_stabilize(tracker_t *tracker) {
 
             // we found a new next, notify it
             if (key_cmp(&tracker->node.id, &tracker->node.finger[0].node.id)) {
-                if (-1 == node_notify_remote(&tracker->node, &tracker->node.finger[0].node, (node_remote_t*)&tracker->node)) {
+                if (CHECK(node_notify_remote(&tracker->node, &tracker->node.finger[0].node, (node_remote_t*)&tracker->node))) {
                     print(LOG_ERROR, "[tracker_stabilize] Error at node_notify_remote\n");
-                    return -1;
+                    return status;
                 }
             }
         }
@@ -832,9 +842,9 @@ int32_t tracker_stabilize(tracker_t *tracker) {
 
                 // we found a new next, notify it
                 if (key_cmp(&tracker->node.id, &tracker->node.finger[0].node.id)) {
-                    if (-1 == node_notify_remote(&tracker->node, &tracker->node.finger[0].node, (node_remote_t*)&tracker->node)) {
+                    if (CHECK(node_notify_remote(&tracker->node, &tracker->node.finger[0].node, (node_remote_t*)&tracker->node))) {
                         print(LOG_ERROR, "[tracker_stabilize] Error at node_notify_remote\n");
-                        return -1;
+                        return status;
                     }
                 }
             }
@@ -848,15 +858,16 @@ int32_t tracker_stabilize(tracker_t *tracker) {
         return 1;
     }
 
-    int32_t status = node_stabilize(&tracker->node);
-
-    for (int32_t i = 0; i < 5 && status == 0; i++) {
-        status = node_fix_fingers(&tracker->node);
+    if (CHECK(node_stabilize(&tracker->node))) {
+        print(LOG_ERROR, "[tracker_stabilize] Error at node_stabilize\n");
+        return status;
     }
 
-    if (-1 == status) {
-        print(LOG_ERROR, "[tracker_stabilize] Error at stabilization\n");
-        return -1;
+    for (int32_t i = 0; i < 5; i++) {
+        if (CHECK(node_fix_fingers(&tracker->node))) {
+            print(LOG_ERROR, "[tracker_stabilize] Error at node_fix_fingers\n");
+            return status;
+        }
     }
 
     file_node_t *p = tracker->files;
@@ -866,8 +877,9 @@ int32_t tracker_stabilize(tracker_t *tracker) {
         if (!key_in(&p->file.id, &tracker->node.prev.id, 0, &tracker->node.id, 1)) {
             node_remote_t peer;
 
-            if (-1 == node_find_next(&tracker->node, &p->file.id, &peer)) {
+            if (CHECK(node_find_next(&tracker->node, &p->file.id, &peer))) {
                 print(LOG_DEBUG, "[tracker_stabilize] Error at node_find_next\n");
+                return status;
             }
 
             char *file_ser;
@@ -878,10 +890,10 @@ int32_t tracker_stabilize(tracker_t *tracker) {
             char *msg;
             uint32_t msg_size;
             
-            if (-1 == node_req(&peer, UPLOAD, file_ser, file_ser_size, &msg, &msg_size)) {
+            if (CHECK(node_req(&peer, UPLOAD, file_ser, file_ser_size, &msg, &msg_size))) {
                 print(LOG_ERROR, "[tracker_upload] Error at node_req\n");
                 free(file_ser);
-                return -1;
+                return status;
             }
 
             free(msg);
@@ -895,40 +907,43 @@ int32_t tracker_stabilize(tracker_t *tracker) {
 
     pthread_mutex_unlock(&tracker->lock);
 
-    return 0;
+    return status;
 }
 
 // download the specified torrent file
 int32_t tracker_download(tracker_t *tracker, key2_t *id) {
+    int32_t status = 0;
+
     // find the peer that handles id
     node_remote_t peer;
-    if (-1 == node_find_next(&tracker->node, id, &peer)) {
+    if (CHECK(node_find_next(&tracker->node, id, &peer))) {
         print(LOG_ERROR, "[tracker_download] Error at node_find_next\n");
-        return -1;
+        return status;
     }
 
     char *msg;
     uint32_t msg_size;
 
     // we know for certain the node exists, ask it if the key id has a value
-    if (-1 == node_req(&peer, SEARCH, id, sizeof(key2_t), &msg, &msg_size)) {
+    if (CHECK(node_req(&peer, SEARCH, id, sizeof(key2_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[tracker_download] Error at node_req\n");
         free(msg);
-        return -1;
+        return status;
     }
 
     if (msg == NULL) {
         print(LOG_ERROR, "[tracker_download] File not found\n");
         // no need to free
-        return -1;
+        status = ERR_FILE_NOT_FOUND;
+        return status;
     }
 
     file_t file;
     deserialize_file(&file, msg, msg_size);
 
-    if (-1 == downloader_add(tracker->downloader, &file)) {
+    if (CHECK(downloader_add(tracker->downloader, &file))) {
         print(LOG_ERROR, "[tracker_download] Error at downloader_add\n");
-        return -1;
+        return status;
     }
 
     struct {
@@ -938,37 +953,40 @@ int32_t tracker_download(tracker_t *tracker, key2_t *id) {
     memcpy(&data.peer, &tracker->node, sizeof(node_remote_t));
     memcpy(&data.id, id, sizeof(key2_t));
 
-    if (-1 == node_req(&peer, ADD_PEER, &data, sizeof(data), &msg, &msg_size)) {
+    if (CHECK(node_req(&peer, ADD_PEER, &data, sizeof(data), &msg, &msg_size))) {
         print(LOG_ERROR, "[tracker_download] Error at node_req\n");
         free(msg);
-        return -1;
+        return status;
     }
 
     free(msg);
 
-    return 0;
+    return status;
 }
 
 // upload the regular file at path to the network
 int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) {
+    int32_t status = 0;
+
     if (strlen(path) >= 512) {
         print(LOG_ERROR, "[tracker_upload] File path too large\n");
-        return -1;
+        status = ERR_PATH_TOO_LARGE;
+        return status;
     }
 
     // create the torrent file associated with this file
     file_t file;
 
-    if (-1 == create_file(&file, path, (node_remote_t*)&tracker->node)) {
+    if (CHECK(create_file(&file, path, (node_remote_t*)&tracker->node))) {
         print(LOG_ERROR, "[tracker_upload] Error at create_file\n");
-        return -1;
+        return status;
     }
 
     // find the peer that should take care of this file
     node_remote_t peer;
-    if (-1 == node_find_next(&tracker->node, &file.id, &peer)) {
+    if (CHECK(node_find_next(&tracker->node, &file.id, &peer))) {
         print(LOG_ERROR, "[tracker_upload] Error at node_find_next\n");
-        return -1;
+        return status;
     }
 
     // send the file to the peer
@@ -980,10 +998,10 @@ int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) 
     char *msg;
     uint32_t msg_size;
     
-    if (-1 == node_req(&peer, UPLOAD, file_ser, file_ser_size, &msg, &msg_size)) {
+    if (CHECK(node_req(&peer, UPLOAD, file_ser, file_ser_size, &msg, &msg_size))) {
         print(LOG_ERROR, "[tracker_upload] Error at node_req\n");
         free(file_ser);
-        return -1;
+        return status;
     }
 
     free(msg);
@@ -998,13 +1016,13 @@ int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) 
 
     // notify the server that we uploaded a file
     // send the file_t without the peers list because it's hard to maintain
-    if (-1 == send_and_recv(server_fd, UPLOAD, &file, sizeof(file_t) - sizeof(list_t), &msg, &msg_size)) {
+    if (CHECK(send_and_recv(server_fd, UPLOAD, &file, sizeof(file_t) - sizeof(list_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[tracker_upload] Error at send_and_recv\n");
         free(msg);
-        return -1;
+        return status;
     }
 
     free(msg);
 
-    return 0;
+    return status;
 }
