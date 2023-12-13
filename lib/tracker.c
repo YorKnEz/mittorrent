@@ -1,6 +1,6 @@
 #include "tracker.h"
 
-int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, int32_t boostrap_server_fd) {
+int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, struct sockaddr_in *server_addr) {
     int32_t status = 0;
 
     tracker->files = NULL;
@@ -11,7 +11,7 @@ int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tra
         return status;
     }
 
-    if (CHECK(tracker_init_dht_connection(tracker, boostrap_server_fd))) {
+    if (CHECK(tracker_init_dht_connection(tracker, server_addr))) {
         print(LOG_ERROR, "[tracker_init] Error at tracker_init_dht_connection\n");
         return status;
     }
@@ -35,6 +35,8 @@ int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, co
     pthread_mutex_init(&tracker->mlock, NULL);
     pthread_mutex_init(&tracker->lock, NULL);
 
+    tracker->running = 1;
+
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_create(&tracker->tid[i], NULL, (void *(*)(void*))tracker_local_server_thread, tracker);
     }
@@ -47,9 +49,9 @@ void tracker_local_server_thread(tracker_t *tracker) {
     struct sockaddr_in tracker_addr;
     socklen_t tracker_size = sizeof(tracker_addr);
 
-    int32_t running = 1;
+    int32_t local_running = 1;
 
-    while (running) {
+    while (local_running) {
         pthread_mutex_lock(&tracker->mlock);
 
         tracker_fd = accept(tracker->fd, (struct sockaddr*)&tracker_addr, &tracker_size);
@@ -536,10 +538,8 @@ void tracker_local_server_thread(tracker_t *tracker) {
             break;
         }
         case SHUTDOWN: {
+            // this request is used to break the blocking accept in case the thread doesn't realize that it should stop
             print(LOG_DEBUG, "[tracker_local_server_thread] Received SHUTDOWN\n");
-
-            running = 0;
-
             break;
         }
         default: {
@@ -557,12 +557,16 @@ void tracker_local_server_thread(tracker_t *tracker) {
         free(msg);
         shutdown(tracker_fd, SHUT_RDWR);
         close(tracker_fd);
+
+        pthread_mutex_lock(&tracker->running_lock);
+        local_running = tracker->running;
+        pthread_mutex_unlock(&tracker->running_lock);
     }
 
     pthread_exit(NULL);
 }
 
-int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
+int32_t tracker_init_dht_connection(tracker_t *tracker, struct sockaddr_in *server_addr) {
     int32_t status = 0;
 
     // initialize key
@@ -574,8 +578,8 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
     char *msg;
     uint32_t msg_size;
 
-    if (CHECK(send_and_recv(bootstrap_fd, CONNECT_TRACKER, &tracker->node, sizeof(node_remote_t), &msg, &msg_size))) {
-        print(LOG_ERROR, "[tracker_init_dht_connection] Error at send_and_recv\n");
+    if (CHECK(request(server_addr, CONNECT_TRACKER, &tracker->node, sizeof(node_remote_t), &msg, &msg_size))) {
+        print(LOG_ERROR, "[tracker_init_dht_connection] Error at request\n");
         free(msg);
         return status;
     }
@@ -669,7 +673,12 @@ int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd) {
 int32_t tracker_cleanup(tracker_t *tracker) {
     int32_t status = 0;
 
+    pthread_mutex_lock(&tracker->running_lock);
+    tracker->running = 0;
+    pthread_mutex_unlock(&tracker->running_lock);
+
     // send shutdown request to all threads
+    // this is to make sure that all threads break out of their accepts
     // TODO: maybe some form of validation that the tracker wants to shutdown its threads
     for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
         int32_t fd;
@@ -965,7 +974,7 @@ int32_t tracker_download(tracker_t *tracker, key2_t *id) {
 }
 
 // upload the regular file at path to the network
-int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) {
+int32_t tracker_upload(tracker_t *tracker, const char *path, struct sockaddr_in *server_addr) {
     int32_t status = 0;
 
     if (strlen(path) >= 512) {
@@ -1016,8 +1025,8 @@ int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd) 
 
     // notify the server that we uploaded a file
     // send the file_t without the peers list because it's hard to maintain
-    if (CHECK(send_and_recv(server_fd, UPLOAD, &file, sizeof(file_t) - sizeof(list_t), &msg, &msg_size))) {
-        print(LOG_ERROR, "[tracker_upload] Error at send_and_recv\n");
+    if (CHECK(request(server_addr, UPLOAD, &file, sizeof(file_t) - sizeof(list_t), &msg, &msg_size))) {
+        print(LOG_ERROR, "[tracker_upload] Error at request\n");
         free(msg);
         return status;
     }

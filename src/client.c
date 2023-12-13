@@ -216,7 +216,7 @@ int32_t main(int32_t argc, char **argv) {
 
             // no results found
             if (results_size == 0) {
-                ERR_GENERIC("error: no results found");
+                ERR_GENERIC("no results found");
                 continue;
             } 
 
@@ -293,7 +293,7 @@ int32_t main(int32_t argc, char **argv) {
 
             // upload file by path
             if (strcmp(cmd.args[0].flag, "-p") == 0) {
-                if (CHECK(tracker_upload(client.tracker, cmd.args[0].value, client.bootstrap_fd))) {
+                if (CHECK(tracker_upload(client.tracker, cmd.args[0].value, &client.bootstrap_addr))) {
                     ERR(status, "upload error");
                     continue;
                 }
@@ -371,11 +371,6 @@ int32_t client_init_bootstrap_server_connection(client_t *client) {
     client->bootstrap_addr.sin_addr.s_addr = BOOTSTRAP_SERVER_IP;
     client->bootstrap_addr.sin_port = htons(BOOTSTRAP_SERVER_PORT);
 
-    if (CHECK(client->bootstrap_fd = get_client_socket(&client->bootstrap_addr))) {
-        print(LOG_ERROR, "[client_init_bootstrap_server_connection] Error at get_client_socket\n");
-        return status;
-    }
-
     return status;
 }
 
@@ -391,21 +386,6 @@ int32_t client_cleanup(client_t *client) {
             return status;
         }
     }
-
-    char *msg;
-    uint32_t msg_size;
-
-    // notify server that we want to disconnect
-    if (CHECK(send_and_recv(client->bootstrap_fd, DISCONNECT, NULL, 0, &msg, &msg_size))) {
-        // if we get here, it's bad
-        print(LOG_ERROR, "[client_cleanup] Error at send_and_recv, disconnecting anyway\n");
-        return status;
-    }
-
-    free(msg);
-
-    shutdown(client->bootstrap_fd, SHUT_RDWR);
-    close(client->bootstrap_fd);
 
     return status;
 }
@@ -423,7 +403,7 @@ int32_t client_start_tracker(client_t *client, const char *tracker_ip, const cha
 
     client->tracker = (tracker_t*)malloc(sizeof(tracker_t));
 
-    if (CHECK(tracker_init(client->tracker, tracker_ip, tracker_port, client->bootstrap_fd))) {
+    if (CHECK(tracker_init(client->tracker, tracker_ip, tracker_port, &client->bootstrap_addr))) {
         print(LOG_ERROR, "[client_start_tracker] Cannot start tracker\n");
         return status;
     }
@@ -440,9 +420,9 @@ int32_t client_stop_tracker(client_t *client) {
     uint32_t msg_size;
 
     // notify server that we want to disconnect tracker
-    if (CHECK(send_and_recv(client->bootstrap_fd, DISCONNECT_TRACKER, &client->tracker->node.id, sizeof(key2_t), &msg, &msg_size))) {
+    if (CHECK(request(&client->bootstrap_addr, DISCONNECT_TRACKER, &client->tracker->node.id, sizeof(key2_t), &msg, &msg_size))) {
         // if we get here, it's bad
-        print(LOG_ERROR, "[client_stop_tracker] Error at send_and_recv, disconnecting anyway\n");
+        print(LOG_ERROR, "[client_stop_tracker] Error at request, disconnecting anyway\n");
         status = 0;
     }
 
@@ -462,8 +442,8 @@ int32_t client_stop_tracker(client_t *client) {
 int32_t client_search(client_t *client, query_t *query, query_result_t** results, uint32_t *results_size) {
     int32_t status = 0;
 
-    if (CHECK(send_and_recv(client->bootstrap_fd, SEARCH, query, sizeof(query_t), (char**)results, results_size))) {
-        print(LOG_ERROR, "[tracker_search] Error at send_and_recv\n");
+    if (CHECK(request(&client->bootstrap_addr, SEARCH, query, sizeof(query_t), (char**)results, results_size))) {
+        print(LOG_ERROR, "[tracker_search] Error at request\n");
         free(results);
         return status;
     }
@@ -478,7 +458,7 @@ int32_t client_download(client_t *client, key2_t *id) {
     uint32_t msg_size;
 
     // we know for certain the node exists, ask it if the key id has a value
-    if (CHECK(send_and_recv(client->bootstrap_fd, SEARCH_PEER, id, sizeof(key2_t), &msg, &msg_size))) {
+    if (CHECK(request(&client->bootstrap_addr, SEARCH_PEER, id, sizeof(key2_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[client_download] Error at send_and_recv\n");
         free(msg);
         return status;

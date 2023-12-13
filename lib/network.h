@@ -16,7 +16,6 @@
 /*
 PROTOCOL REQUESTS
 1. Boostrap server:
-    DISCONNECT                      - completely disconnect from bootstrap server
     CONNECT_TRACKER                 - user starts tracker
     DISCONNECT_TRACKER              - user stops tracker
     SEARCH                          - search files matching a query on server
@@ -45,7 +44,6 @@ PROTOCOL REQUESTS
 */
 
 typedef enum { 
-    DISCONNECT,
     CONNECT_TRACKER,
     DISCONNECT_TRACKER,
     SEARCH,
@@ -100,6 +98,8 @@ int32_t send_res(int32_t socket_fd, res_type_t type, void* msg, uint32_t msg_siz
 int32_t recv_res(int32_t socket_fd, res_header_t *resh, char **msg, uint32_t *msg_size);
 
 int32_t send_and_recv(int32_t socket_fd, req_type_t type, void* req, uint32_t req_size, char **res, uint32_t *res_size);
+
+int32_t request(struct sockaddr_in *addr, req_type_t type, void *req, uint32_t req_size, char **res, uint32_t *res_size);
 
 // debug
 

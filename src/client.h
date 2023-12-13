@@ -7,8 +7,6 @@
 #include "tracker.h"
 
 typedef struct {
-    // the connection to the bootstrap server
-    int32_t bootstrap_fd;
     struct sockaddr_in bootstrap_addr;  // address of the server
 
     downloader_t downloader;            // downloader module

@@ -22,6 +22,10 @@
 
 // tracker interface
 typedef struct {
+    // used by threads to know when to stop
+    int32_t running;
+    pthread_mutex_t running_lock;
+    
     pthread_mutex_t lock;               // tracker structure lock
 
     // local server data
@@ -38,12 +42,12 @@ typedef struct {
     downloader_t *downloader;           // a pointer to the downloader module of the client
 } tracker_t;
 
-int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, int32_t boostrap_server_fd);
+int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, struct sockaddr_in *server_addr);
 
 int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port);
 void tracker_local_server_thread(tracker_t *tracker);
 
-int32_t tracker_init_dht_connection(tracker_t *tracker, int32_t bootstrap_fd);
+int32_t tracker_init_dht_connection(tracker_t *tracker, struct sockaddr_in *server_addr);
 
 int32_t tracker_cleanup(tracker_t *tracker);
 
@@ -59,6 +63,6 @@ int32_t tracker_stabilize(tracker_t *tracker);
 int32_t tracker_download(tracker_t *tracker, key2_t *id);
 
 // upload the regular file at path to the network
-int32_t tracker_upload(tracker_t *tracker, const char *path, int32_t server_fd);
+int32_t tracker_upload(tracker_t *tracker, const char *path, struct sockaddr_in *server_addr);
 
 #endif

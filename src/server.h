@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "dht.h"
+#include "tracker.h"
 
 #include "file_list.h"
 #include "node_list.h"
@@ -35,5 +36,10 @@ int32_t server_init(server_t *server);
 void server_thread(server_t *server);
 
 int32_t server_cleanup(server_t *server);
+
+int32_t server_start(server_t *server);
+int32_t server_stop(server_t *server);
+int32_t server_list_clients(server_t *server);
+int32_t server_list_uploads(server_t *server);
 
 #endif

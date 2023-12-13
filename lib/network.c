@@ -185,6 +185,29 @@ int32_t send_and_recv(int32_t socket_fd, req_type_t type, void* req, uint32_t re
     return status;
 }
 
+int32_t request(struct sockaddr_in *addr, req_type_t type, void *req, uint32_t req_size, char **res, uint32_t *res_size) {
+    int32_t status = 0;
+    int32_t fd;
+
+    if (CHECK((fd = get_client_socket(addr)))) {
+        print(LOG_ERROR, "[request] Error at get_client_socket\n");
+        *res = NULL;
+        return status;
+    }
+
+    if (CHECK(send_and_recv(fd, type, req, req_size, res, res_size))) {
+        print(LOG_ERROR, "[request] Error at send_and_recv\n");
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+        return status;
+    }
+
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
+
+    return status;
+}
+
 // pretty print sockaddr_in
 void print_addr(log_t log_type, struct sockaddr_in *addr) {
     char buf[INET_ADDRSTRLEN];
