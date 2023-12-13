@@ -132,6 +132,26 @@ int32_t downloader_add(downloader_t *downloader, file_t *file) {
     return status;
 }
 
+int32_t downloader_pause(downloader_t *downloader, uint32_t index) {
+    if (!(0 <= index && index < downloader->downloads.size)) {
+        return -1;
+    }
+    
+    download_t *download = downloader->downloads.buffer[index];
+
+    pthread_mutex_lock(&download->lock);
+
+    if (download->state == RUNNING) {
+        download->state = PAUSED;
+    } else {
+        print(LOG, "error: download is not running\n");
+    }
+
+    pthread_mutex_unlock(&download->lock);
+
+    return 0;
+}
+
 void print_downloader(log_t log_type, downloader_t *downloader) {
     pthread_mutex_lock(&downloader->lock);
     print_download_list(log_type, &downloader->downloads);

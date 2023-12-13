@@ -36,6 +36,9 @@ void downloader_cleanup(downloader_t *downloader);
 // creates a new download and adds it to the downloaders job list
 int32_t downloader_add(downloader_t *downloader, file_t *file);
 
+// pauses a download
+int32_t downloader_pause(downloader_t *downloader, uint32_t index);
+
 // prints current state of downloads
 void print_downloader(log_t log_type, downloader_t *downloader);
 

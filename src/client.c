@@ -274,6 +274,13 @@ int32_t main(int32_t argc, char **argv) {
 
                 continue;
             }
+
+            // pause a download
+            if (strcmp(cmd.args[0].flag, "-p") == 0) {
+                downloader_pause(&client.downloader, atoi(cmd.args[0].value));
+
+                continue;
+            }
         }
 
         if (strcmp(cmd.name, "upload") == 0) {
@@ -392,6 +399,7 @@ int32_t client_start_tracker(client_t *client, const char *tracker_ip, const cha
     }
 
     client->tracker->downloader = &client->downloader;
+
     return 0;
 }
 
