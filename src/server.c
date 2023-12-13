@@ -3,12 +3,6 @@
 
 server_t server;
 
-void handle_error(const char* msg) {
-    print(LOG_ERROR, msg);
-    server_cleanup(&server);
-    exit(1);
-}
-
 void print_help() {
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
