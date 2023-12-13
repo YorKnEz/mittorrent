@@ -48,7 +48,7 @@ int32_t main(int32_t argc, char **argv) {
         cmd_t cmd;
 
         if (-1 == cmd_parse(&cmd, cmd_raw)) {
-            print(LOG_ERROR, "error: invalid command format\n");
+            print(LOG, "error: invalid command format\n");
             continue;
         }
 
@@ -205,18 +205,13 @@ int32_t main(int32_t argc, char **argv) {
                 continue;
             }
 
-            // print_query(LOG_DEBUG, &query);
-
             query_result_t* results;
             uint32_t results_size;
 
-            if (!client.tracker) {
-                // TODO: implement search for non trackers
-            } else {
-                if (-1 == tracker_search(client.tracker, &query, client.bootstrap_fd, &results, &results_size)) {
-                    print(LOG, "error: search error\n");
-                    continue;
-                }
+            // non trackers and trackers use the same search function
+            if (-1 == client_search(&client, &query, &results, &results_size)) {
+                print(LOG, "error: search error\n");
+                continue;
             }
 
             // no results found
@@ -425,6 +420,17 @@ int32_t client_stop_tracker(client_t *client) {
 
     return 0;
 }
+
+int32_t client_search(client_t *client, query_t *query, query_result_t** results, uint32_t *results_size) {
+    if (-1 == send_and_recv(client->bootstrap_fd, SEARCH, query, sizeof(query_t), (char**)results, results_size)) {
+        print(LOG_ERROR, "[tracker_search] Error at send_and_recv\n");
+        free(results);
+        return -1;
+    }
+
+    return 0;
+}
+
 int32_t client_download(client_t *client, key2_t *id) {
     char *msg;
     uint32_t msg_size;
