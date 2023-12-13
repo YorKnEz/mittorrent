@@ -1,3 +1,11 @@
+# vscode
 **/.vscode
+
+# neovim
+**/.cache
+**/compile_commands.json
+
+# build
 **/test
 **/build
+
