@@ -7,7 +7,7 @@ void local_file_from_file(local_file_t *local_file, file_t *file, const char *pa
 }
 
 // pretty print file contents
-int32_t print_local_file(log_t log_type, local_file_t *file) {
+void print_local_file(log_t log_type, local_file_t *file) {
     print(log_type, "id: ");
     print_key(log_type, &file->id);
     print(log_type, "\npath: %s\n", file->path);

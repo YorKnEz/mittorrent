@@ -35,6 +35,6 @@ typedef struct {
 void local_file_from_file(local_file_t *local_file, file_t *file, const char *path);
 
 // pretty print file contents
-int32_t print_local_file(log_t log_type, local_file_t *file);
+void print_local_file(log_t log_type, local_file_t *file);
 
 #endif
