@@ -53,28 +53,6 @@ int32_t node_set_prev_remote(node_local_t *node, node_remote_t *fwd_node, node_r
 int32_t node_find_closest_preceding(node_local_t *node, key2_t *id, node_remote_t *res);
 int32_t node_find_closest_preceding_remote(node_local_t *node, node_remote_t *fwd_node, key2_t *id, node_remote_t *res);
 
-
-// join that doesn't support concurrency
-
-/*
-// node joined the network
-// peer is an arbitrary node in the network
-int32_t node_join(node_local_t *node, node_remote_t *peer);
-
-// initialize the finger table of local node
-// peer is an arbitrary node in the network
-int32_t node_init_finger_table(node_local_t *node, node_remote_t *peer);
-
-// update all nodes whose finger tables should refer to node
-int32_t node_update_others(node_local_t *node);
-
-// if s is ith finger of n, update n's finger table with s
-int32_t node_update_finger_table(node_local_t *node, node_remote_t *peer, int32_t i);
-int32_t node_update_finger_table_remote(node_remote_t *node, node_remote_t *peer, int32_t i);
-*/
-
-// join that supports concurrency
-
 // node joined the network
 // peer is an arbitrary node in the network
 int32_t node_join(node_local_t *node, node_remote_t *peer);
