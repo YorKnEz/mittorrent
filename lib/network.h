@@ -28,7 +28,6 @@ PROTOCOL REQUESTS
     FIND_PREV                       -
     SET_PREV                        -
     FIND_CLOSEST_PRECEDING_FINGER   -
-    UPDATE_FINGER_TABLE             - deprecated
     NOTIFY                          -
 
 3. Download protocol
@@ -85,7 +84,6 @@ int32_t get_client_socket(struct sockaddr_in *addr);
 
 // create a socket that is bound to the specified addr
 int32_t get_server_socket(struct sockaddr_in *addr);
-
 
 // read and write don't write all bytes in one call in all cases, msg is assumed to be allocated for both cases
 int32_t read_full(int32_t socket_fd, void *buf, uint32_t buf_size);

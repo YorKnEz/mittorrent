@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-lpthread -Ilib -Ilib/llist -Isrc
+CFLAGS=-Wall -lpthread -Ilib -Ilib/llist -Isrc
 CFLAGSDBG=-g $(CFLAGS)
 
 TARGET=build

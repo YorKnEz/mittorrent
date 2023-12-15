@@ -14,9 +14,6 @@
 #include "network.h"
 #include "error.h"
 
-
-// TODO: move downlaoder to client
-
 #define DOWNLOADER_POOL_SIZE 2 // split the download process across threads
 
 typedef struct {

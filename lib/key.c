@@ -26,7 +26,7 @@ int32_t key_from_file(key2_t *key, int32_t fd, uint64_t *size) {
             return status;
         }
 
-        sha256_update(&ctx, buf, read_bytes);
+        sha256_update(&ctx, (const BYTE*)buf, read_bytes);
 		
         if (size) {
             *size += read_bytes;
@@ -34,6 +34,37 @@ int32_t key_from_file(key2_t *key, int32_t fd, uint64_t *size) {
     }
 
     sha256_final(&ctx, key->key);
+
+    return status;
+}
+
+int32_t key_from_text(key2_t *key, char *buf) {
+    int32_t status = 0;
+
+    if (strlen(buf) != 2 * sizeof(key2_t)) {
+        status = -1;
+        return status;
+    }
+
+    for (uint32_t i = 0; i < strlen(buf); i++) {
+        // turn uppercase to lowercase
+        if ('A' <= buf[i] && buf[i] <= 'F') {
+            buf[i] = buf[i] - 'A' + 'a';
+            continue;
+        }
+        
+        if (!(('0' <= buf[i] && buf[i] <= '9') || ('a' <= buf[i] && buf[i] <= 'f'))) {
+            status = -1;
+            return status;
+        }
+    }
+
+    for (uint32_t i = 0; i < strlen(buf); i += 2) {
+        char val1 = buf[i] < 'A' ? buf[i] - '0' : (buf[i] < 'a' ? buf[i] - 'A' + 10 : buf[i] - 'a' + 10);
+        char val2 = buf[i + 1] < 'A' ? buf[i + 1] - '0' : (buf[i + 1] < 'a' ? buf[i + 1] - 'A' + 10 : buf[i + 1] - 'a' + 10);
+        
+        key->key[i / 2] = (val1 << 4) + val2;
+    }
 
     return status;
 }
@@ -60,6 +91,8 @@ int32_t key_in(key2_t *key, key2_t *min, int32_t min_eq, key2_t *max, int32_t ma
     } else if (min_eq == 1 && max_eq == 1) {
         return (res1 < 0 && (res2 <= 0 && res3 <= 0)) || (res1 >= 0 && (res2 <= 0 || res3 <= 0));
     }
+
+    return 0;
 }
 
 void key_add(key2_t *key1, key2_t *key2) {
@@ -119,37 +152,6 @@ void key_double(key2_t *key) {
         BYTE carry = i == SHA256_BLOCK_SIZE - 1 ? 0 : (key->key[i - 1] >> 7);
         key->key[i] = (key->key[i] << 1) + carry;
     }
-}
-
-int32_t key_from_text(key2_t *key, char *buf) {
-    int32_t status = 0;
-
-    if (strlen(buf) != 2 * sizeof(key2_t)) {
-        status = -1;
-        return status;
-    }
-
-    for (uint32_t i = 0; i < strlen(buf); i++) {
-        // turn uppercase to lowercase
-        if ('A' <= buf[i] && buf[i] <= 'F') {
-            buf[i] = buf[i] - 'A' + 'a';
-            continue;
-        }
-        
-        if (!(('0' <= buf[i] && buf[i] <= '9') || ('a' <= buf[i] && buf[i] <= 'f'))) {
-            status = -1;
-            return status;
-        }
-    }
-
-    for (uint32_t i = 0; i < strlen(buf); i += 2) {
-        char val1 = buf[i] < 'A' ? buf[i] - '0' : (buf[i] < 'a' ? buf[i] - 'A' + 10 : buf[i] - 'a' + 10);
-        char val2 = buf[i + 1] < 'A' ? buf[i + 1] - '0' : (buf[i + 1] < 'a' ? buf[i + 1] - 'A' + 10 : buf[i + 1] - 'a' + 10);
-        
-        key->key[i / 2] = (val1 << 4) + val2;
-    }
-
-    return status;
 }
 
 void print_key(log_t log_type, key2_t *key) {

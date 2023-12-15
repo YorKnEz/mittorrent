@@ -11,8 +11,8 @@
 #include "file_list.h"
 #include "node_list.h"
 
-#define THREAD_POOL_SIZE 2
 #define INVALID_COMMAND "Invalid command"
+#define THREAD_POOL_SIZE 2
 
 typedef struct {
     pthread_mutex_t lock;   // struct lock

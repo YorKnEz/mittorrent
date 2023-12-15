@@ -4,6 +4,7 @@
 # neovim
 **/.cache
 **/compile_commands.json
+**/.clang-format
 
 # build
 **/test
