@@ -5,28 +5,109 @@ client_t client;
 
 // TODO: maybe move the function and add help menus for all commands
 void print_help() {
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
     system("clear");
 
-    print(LOG,
-        ANSI_COLOR_RED "PROLOG\n" ANSI_COLOR_RESET
-        "    This is the torrent client of the project\n\n"
-        ANSI_COLOR_RED "DESCRIPTION\n" ANSI_COLOR_RESET
-        "    The list of commands is the following\n\n"
-        ANSI_COLOR_RED "COMMANDS\n" ANSI_COLOR_RESET
-        "    " ANSI_COLOR_GREEN "help    " ANSI_COLOR_RESET " - show this message;\n\n"
-        "    " ANSI_COLOR_GREEN "tracker " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "tracker -h" ANSI_COLOR_RESET ";\n\n"
-        "    " ANSI_COLOR_GREEN "search  " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "search -h" ANSI_COLOR_RESET ";\n\n"
-        "    " ANSI_COLOR_GREEN "download" ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "download -h" ANSI_COLOR_RESET ";\n\n"
-        "    " ANSI_COLOR_GREEN "upload  " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "upload -h" ANSI_COLOR_RESET ";\n\n"
-        "    " ANSI_COLOR_GREEN "clear   " ANSI_COLOR_RESET " - clears the screen;\n\n"
-        "    " ANSI_COLOR_GREEN "quit    " ANSI_COLOR_RESET " - exit this terminal;\n\n");
+    print(LOG, ANSI_COLOR_RED
+          "PROLOG\n" ANSI_COLOR_RESET
+          "    This is the torrent client of the project\n\n" ANSI_COLOR_RED
+          "DESCRIPTION\n" ANSI_COLOR_RESET
+          "    The list of commands is the following\n\n" ANSI_COLOR_RED
+          "COMMANDS\n" ANSI_COLOR_RESET "    " ANSI_COLOR_GREEN
+          "help    " ANSI_COLOR_RESET " - show this message;\n\n"
+          "    " ANSI_COLOR_GREEN "tracker " ANSI_COLOR_RESET
+          " - see " ANSI_COLOR_RED "tracker -h" ANSI_COLOR_RESET ";\n\n"
+          "    " ANSI_COLOR_GREEN "search  " ANSI_COLOR_RESET
+          " - see " ANSI_COLOR_RED "search -h" ANSI_COLOR_RESET ";\n\n"
+          "    " ANSI_COLOR_GREEN "download" ANSI_COLOR_RESET
+          " - see " ANSI_COLOR_RED "download -h" ANSI_COLOR_RESET ";\n\n"
+          "    " ANSI_COLOR_GREEN "upload  " ANSI_COLOR_RESET
+          " - see " ANSI_COLOR_RED "upload -h" ANSI_COLOR_RESET ";\n\n"
+          "    " ANSI_COLOR_GREEN "clear   " ANSI_COLOR_RESET
+          " - clears the screen;\n\n"
+          "    " ANSI_COLOR_GREEN "quit    " ANSI_COLOR_RESET
+          " - exit this terminal;\n\n");
 }
 
 int32_t main(int32_t argc, char **argv) {
+    cmd_t cmds[7] = {
+        {
+            "tracker",
+            "Manage tracker operations.",
+            5,
+            {
+                {"-h", "--help", NULL, "Print this message."},
+                {"-s", "--start", NULL,
+                 "Start the tracker in order to be able to upload and seed for "
+                 "others"},
+                {"-t", "--stop", NULL, "Stop the tracker"},
+                {"-l", "--state", NULL, "List the tracker state"},
+                {"-r", "--stabilize", NULL, "Stabilize the state of the tracker"},
+            },
+            {0, 1, 2, 3, 4, -1} // only one of these shall be given in a single command
+        },
+        {
+            "search",
+            "Search for a file on the network.",
+            4,
+            {
+                {"-h", "--help", NULL, "Print this message."},
+                {"-i", "--id", "FILE_ID", "Search by id of the file"},
+                {"-n", "--name", "FILE_NAME",
+                 "Search all files that include " ANSI_COLOR_GREEN
+                 "FILE_NAME" ANSI_COLOR_RESET " in their name"},
+                {"-s", "--size", "FILE_SIZE", "Search by size of the file"},
+            },
+            {-1} // no exclusive args
+        },
+        {
+            "download",
+            "Manage downloader operations.",
+            4,
+            {
+                {"-h", "--help", NULL, "Print this message."},
+                {"-i", "--id", "FILE_ID", "Add the file with given id to the downloads list. If the id is already in the download list, the download is restarted."},
+                {"-l", "--list", NULL, "List all of the downloads."},
+                {"-p", "--pause", "INDEX", "Pause the download with the given index. The index is taken out of the downloads list."},
+            },
+            {0, 1, 2, 3, -1}
+        },
+        {
+            "upload",
+            "Upload a file to the network.",
+            2,
+            {
+                {"-h", "--help", NULL, "Print this message."},
+                {"-p", "--path", "PATH", "The path of the file to upload on the network."},
+            },
+            {-1}
+        },
+        {
+            "help",
+            "List all commands of the client.",
+            0,
+            {},
+            {-1},
+        },
+        {
+            "clear",
+            "Clear the terminal screen.",
+            0,
+            {},
+            {-1},
+        },
+        {
+            "quit",
+            "Exit the client.",
+            0,
+            {},
+            {-1},
+        },
+    };
+
+    print_cmd_help(LOG, &cmds[1]);
+
+    exit(0);
+
     int32_t status = 0;
 
     if (argc < 3) {
@@ -44,9 +125,8 @@ int32_t main(int32_t argc, char **argv) {
         print(LOG, "\n> ");
         fgets(cmd_raw, 511, stdin);
         cmd_raw[strlen(cmd_raw) - 1] = 0;
-        uint32_t cmd_raw_size = strlen(cmd_raw);
 
-        cmd_t cmd;
+        parsed_cmd_t cmd;
 
         if (CHECK(cmd_parse(&cmd, cmd_raw))) {
             ERR(status, "invalid command format");
@@ -83,7 +163,7 @@ int32_t main(int32_t argc, char **argv) {
                     ERR(status, "cannot stop tracker");
                     continue;
                 }
-                
+
                 continue;
             }
 
@@ -94,7 +174,7 @@ int32_t main(int32_t argc, char **argv) {
                 }
 
                 tracker_state(client.tracker);
-                
+
                 continue;
             }
 
@@ -103,12 +183,12 @@ int32_t main(int32_t argc, char **argv) {
                     ERR_GENERIC("you must enable the tracker");
                     continue;
                 }
-                
+
                 if (CHECK(tracker_stabilize(client.tracker))) {
                     ERR(status, "stabilize error");
                 } else if (status == 1) {
                     ERR_GENERIC("stopping tracker, rejoin network");
-                    
+
                     if (CHECK(client_stop_tracker(&client))) {
                         ERR(status, "cannot stop tracker");
                     }
@@ -118,13 +198,14 @@ int32_t main(int32_t argc, char **argv) {
             }
         }
 
-        // search and download have implementations for both trackers and non-trackers
+        // search and download have implementations for both trackers and
+        // non-trackers
         if (strcmp(cmd.name, "search") == 0) {
             if (!(1 <= cmd.args_size && cmd.args_size <= 3)) {
                 ERR_GENERIC("invalid number of args");
                 continue;
             }
-            
+
             query_t query;
             memset(&query, 0, sizeof(query_t));
             query.ignore_id = query.ignore_name = query.ignore_size = 1;
@@ -133,7 +214,7 @@ int32_t main(int32_t argc, char **argv) {
 
             for (uint32_t i = 0; i < cmd.args_size; i++) {
                 char *buf = cmd.args[i].value;
-                
+
                 // query.id
                 if (strcmp(cmd.args[i].flag, "-i") == 0) {
                     query.ignore_id = 0;
@@ -143,16 +224,16 @@ int32_t main(int32_t argc, char **argv) {
                         search_status = -1;
                         break;
                     }
-                    
+
                     continue;
                 }
-                
+
                 // query.name
                 if (strcmp(cmd.args[i].flag, "-n") == 0) {
                     query.ignore_name = 0;
 
                     strcpy(query.name, buf);
-                    
+
                     continue;
                 }
 
@@ -174,13 +255,13 @@ int32_t main(int32_t argc, char **argv) {
 
                     for (uint32_t i = 0; valid_size && i < strlen(buf); i++) {
                         uint32_t new_size = query.size * 10 + buf[i] - '0';
-                        
+
                         // check for overflow
                         if (new_size < query.size) {
                             valid_size = 0;
                             break;
                         }
-                        
+
                         query.size = new_size;
                     }
 
@@ -191,7 +272,7 @@ int32_t main(int32_t argc, char **argv) {
                     }
 
                     // query.size is initialized
-                    
+
                     continue;
                 }
             }
@@ -205,11 +286,12 @@ int32_t main(int32_t argc, char **argv) {
                 continue;
             }
 
-            query_result_t* results;
+            query_result_t *results;
             uint32_t results_size;
 
             // non trackers and trackers use the same search function
-            if (CHECK(client_search(&client, &query, &results, &results_size))) {
+            if (CHECK(
+                    client_search(&client, &query, &results, &results_size))) {
                 ERR(status, "search error");
                 continue;
             }
@@ -218,7 +300,7 @@ int32_t main(int32_t argc, char **argv) {
             if (results_size == 0) {
                 ERR_GENERIC("no results found");
                 continue;
-            } 
+            }
 
             results_size = results_size / sizeof(query_result_t);
 
@@ -247,19 +329,19 @@ int32_t main(int32_t argc, char **argv) {
                     ERR(status, "invalid key format");
                     continue;
                 }
-                
+
                 if (!client.tracker) {
                     if (CHECK(client_download(&client, &id))) {
                         ERR(status, "download error");
                         continue;
-                    }                    
+                    }
                 } else {
                     if (CHECK(tracker_download(client.tracker, &id))) {
                         ERR(status, "download error");
                         continue;
                     }
                 }
-                
+
                 continue;
             }
 
@@ -272,7 +354,8 @@ int32_t main(int32_t argc, char **argv) {
 
             // pause a download
             if (strcmp(cmd.args[0].flag, "-p") == 0) {
-                if (CHECK(downloader_pause(&client.downloader, atoi(cmd.args[0].value)))) {
+                if (CHECK(downloader_pause(&client.downloader,
+                                           atoi(cmd.args[0].value)))) {
                     ERR(status, "cannot pause download");
                 }
 
@@ -293,7 +376,8 @@ int32_t main(int32_t argc, char **argv) {
 
             // upload file by path
             if (strcmp(cmd.args[0].flag, "-p") == 0) {
-                if (CHECK(tracker_upload(client.tracker, cmd.args[0].value, &client.bootstrap_addr))) {
+                if (CHECK(tracker_upload(client.tracker, cmd.args[0].value,
+                                         &client.bootstrap_addr))) {
                     ERR(status, "upload error");
                     continue;
                 }
@@ -310,7 +394,7 @@ int32_t main(int32_t argc, char **argv) {
             }
 
             print_help();
-            
+
             continue;
         }
 
@@ -319,7 +403,7 @@ int32_t main(int32_t argc, char **argv) {
                 ERR_GENERIC("invalid number of args");
                 continue;
             }
-            
+
             system("clear");
             continue;
         }
@@ -329,7 +413,7 @@ int32_t main(int32_t argc, char **argv) {
                 ERR_GENERIC("invalid number of args");
                 continue;
             }
-            
+
             break;
         }
 
@@ -348,7 +432,9 @@ int32_t client_init(client_t *client) {
     int32_t status = 0;
 
     if (CHECK(client_init_bootstrap_server_connection(client))) {
-        print(LOG_ERROR, "[client_init] Error at client_init_bootstrap_server_connection\n");
+        print(
+            LOG_ERROR,
+            "[client_init] Error at client_init_bootstrap_server_connection\n");
         return status;
     }
 
@@ -379,7 +465,7 @@ int32_t client_cleanup(client_t *client) {
 
     // shutdown downloader
     downloader_cleanup(&client->downloader);
-    
+
     if (client->tracker) {
         if (CHECK(client_stop_tracker(client))) {
             print(LOG_ERROR, "[client_cleanup] Error at client_stop_tracker\n");
@@ -390,20 +476,24 @@ int32_t client_cleanup(client_t *client) {
     return status;
 }
 
-int32_t client_start_tracker(client_t *client, const char *tracker_ip, const char *tracker_port) {
+int32_t client_start_tracker(client_t *client, const char *tracker_ip,
+                             const char *tracker_port) {
     int32_t status = 0;
 
     // create DEFAULT_SAVE_LOCATION if it doesn't exist
     if (CHECK(access(DEFAULT_SAVE_LOCATION, F_OK))) {
         if (CHECK(mkdir(DEFAULT_SAVE_LOCATION, 0755))) {
-            print(LOG_ERROR, "[client_start_tracker] Cannot create `%s` folder\n", DEFAULT_SAVE_LOCATION);
+            print(LOG_ERROR,
+                  "[client_start_tracker] Cannot create `%s` folder\n",
+                  DEFAULT_SAVE_LOCATION);
             return status;
         }
     }
 
-    client->tracker = (tracker_t*)malloc(sizeof(tracker_t));
+    client->tracker = (tracker_t *)malloc(sizeof(tracker_t));
 
-    if (CHECK(tracker_init(client->tracker, tracker_ip, tracker_port, &client->bootstrap_addr))) {
+    if (CHECK(tracker_init(client->tracker, tracker_ip, tracker_port,
+                           &client->bootstrap_addr))) {
         print(LOG_ERROR, "[client_start_tracker] Cannot start tracker\n");
         return status;
     }
@@ -420,9 +510,12 @@ int32_t client_stop_tracker(client_t *client) {
     uint32_t msg_size;
 
     // notify server that we want to disconnect tracker
-    if (CHECK(request(&client->bootstrap_addr, DISCONNECT_TRACKER, &client->tracker->node.id, sizeof(key2_t), &msg, &msg_size))) {
+    if (CHECK(request(&client->bootstrap_addr, DISCONNECT_TRACKER,
+                      &client->tracker->node.id, sizeof(key2_t), &msg,
+                      &msg_size))) {
         // if we get here, it's bad
-        print(LOG_ERROR, "[client_stop_tracker] Error at request, disconnecting anyway\n");
+        print(LOG_ERROR,
+              "[client_stop_tracker] Error at request, disconnecting anyway\n");
         status = 0;
     }
 
@@ -439,10 +532,12 @@ int32_t client_stop_tracker(client_t *client) {
     return status;
 }
 
-int32_t client_search(client_t *client, query_t *query, query_result_t** results, uint32_t *results_size) {
+int32_t client_search(client_t *client, query_t *query,
+                      query_result_t **results, uint32_t *results_size) {
     int32_t status = 0;
 
-    if (CHECK(request(&client->bootstrap_addr, SEARCH, query, sizeof(query_t), (char**)results, results_size))) {
+    if (CHECK(request(&client->bootstrap_addr, SEARCH, query, sizeof(query_t),
+                      (char **)results, results_size))) {
         print(LOG_ERROR, "[tracker_search] Error at request\n");
         free(results);
         return status;
@@ -458,8 +553,9 @@ int32_t client_download(client_t *client, key2_t *id) {
     uint32_t msg_size;
 
     // we know for certain the node exists, ask it if the key id has a value
-    if (CHECK(request(&client->bootstrap_addr, SEARCH_PEER, id, sizeof(key2_t), &msg, &msg_size))) {
-        print(LOG_ERROR, "[client_download] Error at send_and_recv\n");
+    if (CHECK(request(&client->bootstrap_addr, SEARCH_PEER, id, sizeof(key2_t),
+                      &msg, &msg_size))) {
+        print(LOG_ERROR, "[client_download] Error at request\n");
         free(msg);
         return status;
     }

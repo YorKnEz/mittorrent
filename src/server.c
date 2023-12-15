@@ -36,9 +36,8 @@ int32_t main() {
         print(LOG, "\n> ");
         fgets(cmd_raw, 511, stdin);
         cmd_raw[strlen(cmd_raw) - 1] = 0;
-        uint32_t cmd_raw_size = strlen(cmd_raw);
 
-        cmd_t cmd;
+        parsed_cmd_t cmd;
 
         if (CHECK(cmd_parse(&cmd, cmd_raw))) {
             ERR(status, "invalid command format");
