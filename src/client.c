@@ -1,4 +1,5 @@
 #include "client.h"
+#include "cmd_parser.h"
 #include "error.h"
 
 client_t client;
@@ -29,6 +30,7 @@ void print_help() {
 }
 
 int32_t main(int32_t argc, char **argv) {
+    // uint32_t cmds_size = 7;
     cmd_t cmds[7] = {
         {
             "tracker",
@@ -103,10 +105,6 @@ int32_t main(int32_t argc, char **argv) {
             {-1},
         },
     };
-
-    print_cmd_help(LOG, &cmds[1]);
-
-    exit(0);
 
     int32_t status = 0;
 
@@ -196,6 +194,12 @@ int32_t main(int32_t argc, char **argv) {
 
                 continue;
             }
+
+            if (strcmp(cmd.args[0].flag, "-h") == 0) {
+                print_cmd_help(LOG, &cmds[0]);
+
+                continue;
+            }
         }
 
         // search and download have implementations for both trackers and
@@ -203,6 +207,12 @@ int32_t main(int32_t argc, char **argv) {
         if (strcmp(cmd.name, "search") == 0) {
             if (!(1 <= cmd.args_size && cmd.args_size <= 3)) {
                 ERR_GENERIC("invalid number of args");
+                continue;
+            }
+
+            if (strcmp(cmd.args[0].flag, "-h") == 0) {
+                print_cmd_help(LOG, &cmds[1]);
+
                 continue;
             }
 
@@ -361,6 +371,12 @@ int32_t main(int32_t argc, char **argv) {
 
                 continue;
             }
+
+            if (strcmp(cmd.args[0].flag, "-h") == 0) {
+                print_cmd_help(LOG, &cmds[2]);
+
+                continue;
+            }
         }
 
         if (strcmp(cmd.name, "upload") == 0) {
@@ -381,6 +397,12 @@ int32_t main(int32_t argc, char **argv) {
                     ERR(status, "upload error");
                     continue;
                 }
+
+                continue;
+            }
+
+            if (strcmp(cmd.args[0].flag, "-h") == 0) {
+                print_cmd_help(LOG, &cmds[3]);
 
                 continue;
             }
@@ -538,8 +560,8 @@ int32_t client_search(client_t *client, query_t *query,
 
     if (CHECK(request(&client->bootstrap_addr, SEARCH, query, sizeof(query_t),
                       (char **)results, results_size))) {
-        print(LOG_ERROR, "[tracker_search] Error at request\n");
-        free(results);
+        print(LOG_ERROR, "[client_search] Error at request\n");
+        free(*results);
         return status;
     }
 

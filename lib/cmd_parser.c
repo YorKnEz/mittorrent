@@ -184,5 +184,4 @@ void print_cmd_help(log_t log_type, cmd_t *cmd) {
     for (uint32_t i = 0; i < cmd->args_size; i++) {
         print_cmd_arg(log_type, &cmd->args[i]);
     }
-    print(log_type, "\n\n");
 }
