@@ -187,24 +187,76 @@ void print_cmd_help(log_t log_type, cmd_t *cmd) {
     }
 }
 
-void print_cmds_help(log_t log_type, cmd_t *cmds, uint32_t cmds_size) {
+void cmds_get_cmd_type(cmds_t *cmds, parsed_cmd_t *cmd, cmd_type_t *cmd_type) {
+    for (uint32_t i = 0; i < cmds->size; i++) {
+        if (strcmp(cmd->name, cmds->list[i].cmd_name) == 0) {
+            if (cmd->args_size == 0) {
+                *cmd_type = cmds->list[i].cmd_type;
+                break;
+            }
+
+            // take each arg and validate it
+            for (uint32_t j = 0; j < cmd->args_size; j++) {
+                uint32_t arg = -1;
+
+                for (uint32_t k = 0; k < cmds->list[i].args_size; k++) {
+                    if (strcmp(cmd->args[j].flag,
+                               cmds->list[i].args[k].short_name) == 0 ||
+                        strcmp(cmd->args[j].flag,
+                               cmds->list[i].args[k].long_name) == 0) {
+                        arg = k;
+
+                        break;
+                    }
+                }
+
+                if (-1 == arg) {
+                    ERR_GENERIC("invalid flag %s", cmd->args[j].flag);
+                    *cmd_type = CMD_ERROR;
+                    break;
+                }
+
+                if (cmds->list[i].args[arg].excl && cmd->args_size > 1) {
+                    ERR_GENERIC("flag %s should be used alone",
+                                cmd->args[j].flag);
+                    *cmd_type = CMD_ERROR;
+                    break;
+                }
+
+                // check if value is non null
+                if (cmds->list[i].args[arg].placeholder && !cmd->args[j].value) {
+                    ERR_GENERIC("value must be non-null for %s",
+                                cmd->args[j].flag);
+                    *cmd_type = CMD_ERROR;
+                    break;
+                }
+
+                *cmd_type = cmds->list[i].args[arg].cmd_type;
+            }
+
+            break;
+        }
+    }
+}
+
+void print_cmds_help(log_t log_type, cmds_t *cmds) {
     // PROLOG
     print(log_type,
           ANSI_COLOR_RED "PROLOG\n" ANSI_COLOR_RESET
-                         "    This is the torrent client of the project\n\n");
+                         "    %s\n\n", cmds->prolog);
 
     // DESCRIPTION
     print(log_type, ANSI_COLOR_RED "DESCRIPTION\n" ANSI_COLOR_RESET
-                              "    The list of commands is the following\n\n");
+                              "    %s\n\n", cmds->desc);
 
     // COMMANDS
     print(log_type, ANSI_COLOR_RED "COMMANDS\n" ANSI_COLOR_RESET);
     
-    for (uint32_t i = 0; i < cmds_size; i++) {
-        if (cmds[i].args_size > 0) {
-            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - see " ANSI_COLOR_GREEN "%s -h" ANSI_COLOR_RESET, cmds[i].cmd_name, cmds[i].cmd_name);
+    for (uint32_t i = 0; i < cmds->size; i++) {
+        if (cmds->list[i].args_size > 0) {
+            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - see " ANSI_COLOR_GREEN "%s -h" ANSI_COLOR_RESET, cmds->list[i].cmd_name, cmds->list[i].cmd_name);
         } else {
-            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - %s", cmds[i].cmd_name, cmds[i].desc);
+            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - %s", cmds->list[i].cmd_name, cmds->list[i].desc);
         }
         print(log_type, "\n\n");
     }

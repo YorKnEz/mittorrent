@@ -79,8 +79,8 @@ typedef struct {
 typedef struct {
     const char *prolog;
     const char *desc;
-    uint32_t cmds_size;
-    cmd_t *cmds;
+    uint32_t size;
+    cmd_t list[10];
 } cmds_t;
 
 int32_t cmd_parse(parsed_cmd_t *cmd, char *buf);
@@ -89,6 +89,8 @@ void print_parsed_cmd(log_t log_type, parsed_cmd_t *cmd);
 
 void print_cmd_help(log_t log_type, cmd_t *cmd);
 
-void print_cmds_help(log_t log_type, cmd_t *cmds, uint32_t cmds_size);
+void cmds_get_cmd_type(cmds_t *cmds, parsed_cmd_t *cmd, cmd_type_t *cmd_type);
+
+void print_cmds_help(log_t log_type, cmds_t *cmds);
 
 #endif

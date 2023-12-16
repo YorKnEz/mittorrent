@@ -9,6 +9,7 @@
 typedef struct {
     struct sockaddr_in bootstrap_addr;  // address of the server
 
+    cmds_t cmds;                        // command parser module
     downloader_t downloader;            // downloader module
     tracker_t *tracker;                 // tracker module
 } client_t;

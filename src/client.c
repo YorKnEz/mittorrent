@@ -4,99 +4,8 @@
 
 client_t client;
 
-int32_t main(int32_t argc, char **argv) {
-    uint32_t cmds_size = 7;
-    cmd_t cmds[7] = {
-        {
-            CMD_UNKNOWN,
-            "tracker",
-            "Manage tracker operations.",
-            5,
-            {
-                {CMD_TRACKER_HELP, 1, "-h", "--help", NULL,
-                 "Print this message."},
-                {CMD_TRACKER_START, 1, "-s", "--start", NULL,
-                 "Start the tracker in order to be able to upload and seed for "
-                 "others"},
-                {CMD_TRACKER_STOP, 1, "-t", "--stop", NULL, "Stop the tracker"},
-                {CMD_TRACKER_STATE, 1, "-l", "--state", NULL,
-                 "List the tracker state"},
-                {CMD_TRACKER_STABILIZE, 1, "-r", "--stabilize", NULL,
-                 "Stabilize the state of the tracker"},
-            },
-        },
-        {
-            CMD_SEARCH,
-            "search",
-            "Search for a file on the network.",
-            4,
-            {
-                {CMD_SEARCH_HELP, 1, "-h", "--help", NULL,
-                 "Print this message."},
-                {CMD_SEARCH, 0, "-i", "--id", "FILE_ID",
-                 "Search by id of the file"},
-                {CMD_SEARCH, 0, "-n", "--name", "FILE_NAME",
-                 "Search all files that include " ANSI_COLOR_GREEN
-                 "FILE_NAME" ANSI_COLOR_RESET " in their name"},
-                {CMD_SEARCH, 0, "-s", "--size", "FILE_SIZE",
-                 "Search by size of the file"},
-            },
-        },
-        {
-            CMD_UNKNOWN,
-            "download",
-            "Manage downloader operations.",
-            4,
-            {
-                {CMD_DOWNLOAD_HELP, 1, "-h", "--help", NULL,
-                 "Print this message."},
-                {CMD_DOWNLOAD, 1, "-i", "--id", "FILE_ID",
-                 "Add the file with given id to the downloads list. If the id "
-                 "is "
-                 "already in the download list, the download is restarted."},
-                {CMD_DOWNLOAD_LIST, 1, "-l", "--list", NULL,
-                 "List all of the downloads."},
-                {CMD_DOWNLOAD_PAUSE, 1, "-p", "--pause", "INDEX",
-                 "Pause the download with the given index. The index is taken "
-                 "out "
-                 "of the downloads list."},
-            },
-        },
-        {
-            CMD_UNKNOWN,
-            "upload",
-            "Upload a file to the network.",
-            2,
-            {
-                {CMD_UPLOAD_HELP, 1, "-h", "--help", NULL,
-                 "Print this message."},
-                {CMD_UPLOAD, 1, "-p", "--path", "PATH",
-                 "The path of the file to upload on the network."},
-            },
-        },
-        {
-            CMD_HELP,
-            "help",
-            "List all commands of the client.",
-            0,
-            {},
-        },
-        {
-            CMD_CLEAR,
-            "clear",
-            "Clear the terminal screen.",
-            0,
-            {},
-        },
-        {
-            CMD_QUIT,
-            "quit",
-            "Exit the client.",
-            0,
-            {},
-        },
-    };
 
+int32_t main(int32_t argc, char **argv) {
     int32_t status = 0;
     int32_t running = 1;
 
@@ -116,9 +25,8 @@ int32_t main(int32_t argc, char **argv) {
         fgets(cmd_raw, 511, stdin);
         cmd_raw[strlen(cmd_raw) - 1] = 0;
 
-        parsed_cmd_t cmd;
-
         // 1. parse the command
+        parsed_cmd_t cmd;
         if (CHECK(cmd_parse(&cmd, cmd_raw))) {
             ERR(status, "invalid command format");
             continue;
@@ -126,56 +34,7 @@ int32_t main(int32_t argc, char **argv) {
 
         // 2. interpret the command
         cmd_type_t cmd_type = CMD_UNKNOWN;
-
-        for (uint32_t i = 0; i < cmds_size; i++) {
-            if (strcmp(cmd.name, cmds[i].cmd_name) == 0) {
-                if (cmd.args_size == 0) {
-                    cmd_type = cmds[i].cmd_type;
-                    break;
-                }
-
-                // take each arg and validate it
-                for (uint32_t j = 0; j < cmd.args_size; j++) {
-                    uint32_t arg = -1;
-
-                    for (uint32_t k = 0; k < cmds[i].args_size; k++) {
-                        if (strcmp(cmd.args[j].flag,
-                                   cmds[i].args[k].short_name) == 0 ||
-                            strcmp(cmd.args[j].flag,
-                                   cmds[i].args[k].long_name) == 0) {
-                            arg = k;
-
-                            break;
-                        }
-                    }
-
-                    if (-1 == arg) {
-                        ERR_GENERIC("invalid flag %s", cmd.args[j].flag);
-                        cmd_type = CMD_ERROR;
-                        break;
-                    }
-
-                    if (cmds[i].args[arg].excl && cmd.args_size > 1) {
-                        ERR_GENERIC("flag %s should be used alone",
-                                    cmd.args[j].flag);
-                        cmd_type = CMD_ERROR;
-                        break;
-                    }
-
-                    // check if value is non null
-                    if (cmds[i].args[arg].placeholder && !cmd.args[j].value) {
-                        ERR_GENERIC("value must be non-null for %s",
-                                    cmd.args[j].flag);
-                        cmd_type = CMD_ERROR;
-                        break;
-                    }
-
-                    cmd_type = cmds[i].args[arg].cmd_type;
-                }
-
-                break;
-            }
-        }
+        cmds_get_cmd_type(&client.cmds, &cmd, &cmd_type);
 
         if (cmd_type == CMD_ERROR) {
             continue;
@@ -236,7 +95,7 @@ int32_t main(int32_t argc, char **argv) {
             break;
         }
         case CMD_TRACKER_HELP: {
-            print_cmd_help(LOG, &cmds[0]);
+            print_cmd_help(LOG, &client.cmds.list[0]);
             break;
         }
         case CMD_SEARCH: {
@@ -350,7 +209,7 @@ int32_t main(int32_t argc, char **argv) {
             break;
         }
         case CMD_SEARCH_HELP: {
-            print_cmd_help(LOG, &cmds[1]);
+            print_cmd_help(LOG, &client.cmds.list[1]);
             break;
         }
         case CMD_DOWNLOAD: {
@@ -388,7 +247,7 @@ int32_t main(int32_t argc, char **argv) {
             break;
         }
         case CMD_DOWNLOAD_HELP: {
-            print_cmd_help(LOG, &cmds[2]);
+            print_cmd_help(LOG, &client.cmds.list[2]);
             break;
         }
         case CMD_UPLOAD: {
@@ -397,15 +256,15 @@ int32_t main(int32_t argc, char **argv) {
                 ERR(status, "upload error");
                 continue;
             }
-                
+
             break;
         }
         case CMD_UPLOAD_HELP: {
-            print_cmd_help(LOG, &cmds[3]);
+            print_cmd_help(LOG, &client.cmds.list[3]);
             break;
         }
         case CMD_HELP: {
-            print_cmds_help(LOG, cmds, cmds_size);
+            print_cmds_help(LOG, &client.cmds);
             break;
         }
         case CMD_CLEAR: {
@@ -448,6 +307,108 @@ int32_t client_init(client_t *client) {
         print(LOG_ERROR, "[client_init] Error at downloader_init\n");
         return status;
     }
+
+    cmds_t cmds = {
+        "This is the torrent client of the project",
+        "The list of commands is described below",
+        7,
+        {
+            {
+                CMD_UNKNOWN,
+                "tracker",
+                "Manage tracker operations.",
+                5,
+                {
+                    {CMD_TRACKER_HELP, 1, "-h", "--help", NULL,
+                     "Print this message."},
+                    {CMD_TRACKER_START, 1, "-s", "--start", NULL,
+                     "Start the tracker in order to be able to upload and seed "
+                     "for "
+                     "others"},
+                    {CMD_TRACKER_STOP, 1, "-t", "--stop", NULL,
+                     "Stop the tracker"},
+                    {CMD_TRACKER_STATE, 1, "-l", "--state", NULL,
+                     "List the tracker state"},
+                    {CMD_TRACKER_STABILIZE, 1, "-r", "--stabilize", NULL,
+                     "Stabilize the state of the tracker"},
+                },
+            },
+            {
+                CMD_SEARCH,
+                "search",
+                "Search for a file on the network.",
+                4,
+                {
+                    {CMD_SEARCH_HELP, 1, "-h", "--help", NULL,
+                     "Print this message."},
+                    {CMD_SEARCH, 0, "-i", "--id", "FILE_ID",
+                     "Search by id of the file"},
+                    {CMD_SEARCH, 0, "-n", "--name", "FILE_NAME",
+                     "Search all files that include " ANSI_COLOR_GREEN
+                     "FILE_NAME" ANSI_COLOR_RESET " in their name"},
+                    {CMD_SEARCH, 0, "-s", "--size", "FILE_SIZE",
+                     "Search by size of the file"},
+                },
+            },
+            {
+                CMD_UNKNOWN,
+                "download",
+                "Manage downloader operations.",
+                4,
+                {
+                    {CMD_DOWNLOAD_HELP, 1, "-h", "--help", NULL,
+                     "Print this message."},
+                    {CMD_DOWNLOAD, 1, "-i", "--id", "FILE_ID",
+                     "Add the file with given id to the downloads list. If the "
+                     "id "
+                     "is "
+                     "already in the download list, the download is "
+                     "restarted."},
+                    {CMD_DOWNLOAD_LIST, 1, "-l", "--list", NULL,
+                     "List all of the downloads."},
+                    {CMD_DOWNLOAD_PAUSE, 1, "-p", "--pause", "INDEX",
+                     "Pause the download with the given index. The index is "
+                     "taken "
+                     "out "
+                     "of the downloads list."},
+                },
+            },
+            {
+                CMD_UNKNOWN,
+                "upload",
+                "Upload a file to the network.",
+                2,
+                {
+                    {CMD_UPLOAD_HELP, 1, "-h", "--help", NULL,
+                     "Print this message."},
+                    {CMD_UPLOAD, 1, "-p", "--path", "PATH",
+                     "The path of the file to upload on the network."},
+                },
+            },
+            {
+                CMD_HELP,
+                "help",
+                "List all commands of the client.",
+                0,
+                {},
+            },
+            {
+                CMD_CLEAR,
+                "clear",
+                "Clear the terminal screen.",
+                0,
+                {},
+            },
+            {
+                CMD_QUIT,
+                "quit",
+                "Exit the client.",
+                0,
+                {},
+            },
+        }};
+
+    memcpy(&client->cmds, &cmds, sizeof(cmds_t));
 
     return status;
 }
