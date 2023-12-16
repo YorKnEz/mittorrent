@@ -4,86 +4,74 @@
 
 client_t client;
 
-// TODO: maybe move the function and add help menus for all commands
-void print_help() {
-    system("clear");
-
-    print(LOG, ANSI_COLOR_RED
-          "PROLOG\n" ANSI_COLOR_RESET
-          "    This is the torrent client of the project\n\n" ANSI_COLOR_RED
-          "DESCRIPTION\n" ANSI_COLOR_RESET
-          "    The list of commands is the following\n\n" ANSI_COLOR_RED
-          "COMMANDS\n" ANSI_COLOR_RESET "    " ANSI_COLOR_GREEN
-          "help    " ANSI_COLOR_RESET " - show this message;\n\n"
-          "    " ANSI_COLOR_GREEN "tracker " ANSI_COLOR_RESET
-          " - see " ANSI_COLOR_RED "tracker -h" ANSI_COLOR_RESET ";\n\n"
-          "    " ANSI_COLOR_GREEN "search  " ANSI_COLOR_RESET
-          " - see " ANSI_COLOR_RED "search -h" ANSI_COLOR_RESET ";\n\n"
-          "    " ANSI_COLOR_GREEN "download" ANSI_COLOR_RESET
-          " - see " ANSI_COLOR_RED "download -h" ANSI_COLOR_RESET ";\n\n"
-          "    " ANSI_COLOR_GREEN "upload  " ANSI_COLOR_RESET
-          " - see " ANSI_COLOR_RED "upload -h" ANSI_COLOR_RESET ";\n\n"
-          "    " ANSI_COLOR_GREEN "clear   " ANSI_COLOR_RESET
-          " - clears the screen;\n\n"
-          "    " ANSI_COLOR_GREEN "quit    " ANSI_COLOR_RESET
-          " - exit this terminal;\n\n");
-}
-
 int32_t main(int32_t argc, char **argv) {
-    // uint32_t cmds_size = 7;
+    uint32_t cmds_size = 7;
     cmd_t cmds[7] = {
+        {CMD_UNKNOWN,
+         "tracker",
+         "Manage tracker operations.",
+         5,
+         {
+             {CMD_TRACKER_HELP, "-h", "--help", NULL, "Print this message."},
+             {CMD_TRACKER_START, "-s", "--start", NULL,
+              "Start the tracker in order to be able to upload and seed for "
+              "others"},
+             {CMD_TRACKER_STOP, "-t", "--stop", NULL, "Stop the tracker"},
+             {CMD_TRACKER_STATE, "-l", "--state", NULL,
+              "List the tracker state"},
+             {CMD_TRACKER_STABILIZE, "-r", "--stabilize", NULL,
+              "Stabilize the state of the tracker"},
+         },
+         {0, 1, 2, 3, 4, -1}},
+        {CMD_SEARCH,
+         "search",
+         "Search for a file on the network.",
+         4,
+         {
+             {CMD_SEARCH_HELP, "-h", "--help", NULL, "Print this message."},
+             {CMD_SEARCH, "-i", "--id", "FILE_ID", "Search by id of the file"},
+             {CMD_SEARCH, "-n", "--name", "FILE_NAME",
+              "Search all files that include " ANSI_COLOR_GREEN
+              "FILE_NAME" ANSI_COLOR_RESET " in their name"},
+             {CMD_SEARCH, "-s", "--size", "FILE_SIZE",
+              "Search by size of the file"},
+         },
+         {0, -1}},
         {
-            "tracker",
-            "Manage tracker operations.",
-            5,
-            {
-                {"-h", "--help", NULL, "Print this message."},
-                {"-s", "--start", NULL,
-                 "Start the tracker in order to be able to upload and seed for "
-                 "others"},
-                {"-t", "--stop", NULL, "Stop the tracker"},
-                {"-l", "--state", NULL, "List the tracker state"},
-                {"-r", "--stabilize", NULL, "Stabilize the state of the tracker"},
-            },
-            {0, 1, 2, 3, 4, -1} // only one of these shall be given in a single command
-        },
-        {
-            "search",
-            "Search for a file on the network.",
-            4,
-            {
-                {"-h", "--help", NULL, "Print this message."},
-                {"-i", "--id", "FILE_ID", "Search by id of the file"},
-                {"-n", "--name", "FILE_NAME",
-                 "Search all files that include " ANSI_COLOR_GREEN
-                 "FILE_NAME" ANSI_COLOR_RESET " in their name"},
-                {"-s", "--size", "FILE_SIZE", "Search by size of the file"},
-            },
-            {-1} // no exclusive args
-        },
-        {
+            CMD_UNKNOWN,
             "download",
             "Manage downloader operations.",
             4,
             {
-                {"-h", "--help", NULL, "Print this message."},
-                {"-i", "--id", "FILE_ID", "Add the file with given id to the downloads list. If the id is already in the download list, the download is restarted."},
-                {"-l", "--list", NULL, "List all of the downloads."},
-                {"-p", "--pause", "INDEX", "Pause the download with the given index. The index is taken out of the downloads list."},
+                {CMD_DOWNLOAD_HELP, "-h", "--help", NULL,
+                 "Print this message."},
+                {CMD_DOWNLOAD, "-i", "--id", "FILE_ID",
+                 "Add the file with given id to the downloads list. If the id "
+                 "is "
+                 "already in the download list, the download is restarted."},
+                {CMD_DOWNLOAD_LIST, "-l", "--list", NULL,
+                 "List all of the downloads."},
+                {CMD_DOWNLOAD_PAUSE, "-p", "--pause", "INDEX",
+                 "Pause the download with the given index. The index is taken "
+                 "out "
+                 "of the downloads list."},
             },
-            {0, 1, 2, 3, -1}
+            {0, 1, 2, 3, -1},
         },
         {
+            CMD_UNKNOWN,
             "upload",
             "Upload a file to the network.",
             2,
             {
-                {"-h", "--help", NULL, "Print this message."},
-                {"-p", "--path", "PATH", "The path of the file to upload on the network."},
+                {CMD_UPLOAD_HELP, "-h", "--help", NULL, "Print this message."},
+                {CMD_UPLOAD, "-p", "--path", "PATH",
+                 "The path of the file to upload on the network."},
             },
-            {-1}
+            {0, 1, -1},
         },
         {
+            CMD_HELP,
             "help",
             "List all commands of the client.",
             0,
@@ -91,6 +79,7 @@ int32_t main(int32_t argc, char **argv) {
             {-1},
         },
         {
+            CMD_CLEAR,
             "clear",
             "Clear the terminal screen.",
             0,
@@ -98,6 +87,7 @@ int32_t main(int32_t argc, char **argv) {
             {-1},
         },
         {
+            CMD_QUIT,
             "quit",
             "Exit the client.",
             0,
@@ -107,6 +97,7 @@ int32_t main(int32_t argc, char **argv) {
     };
 
     int32_t status = 0;
+    int32_t running = 1;
 
     if (argc < 3) {
         ERR_GENERIC("usage: ./client TRACKER_IP TRACKER_PORT");
@@ -118,7 +109,7 @@ int32_t main(int32_t argc, char **argv) {
         exit(-1);
     }
 
-    while (1) {
+    while (running) {
         char cmd_raw[512];
         print(LOG, "\n> ");
         fgets(cmd_raw, 511, stdin);
@@ -126,96 +117,151 @@ int32_t main(int32_t argc, char **argv) {
 
         parsed_cmd_t cmd;
 
+        // 1. parse the command
         if (CHECK(cmd_parse(&cmd, cmd_raw))) {
             ERR(status, "invalid command format");
             continue;
         }
 
-        if (strcmp(cmd.name, "tracker") == 0) {
-            if (cmd.args_size != 1) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
+        // 2. interpret the command
+        cmd_type_t cmd_type = CMD_UNKNOWN;
 
-            if (strcmp(cmd.args[0].flag, "-start") == 0) {
-                if (client.tracker) {
-                    ERR_GENERIC("tracker already started\n");
-                    continue;
+        for (uint32_t i = 0; i < cmds_size; i++) {
+            if (strcmp(cmd.name, cmds[i].cmd_name) == 0) {
+                if (cmd.args_size == 0) {
+                    cmd_type = cmds[i].cmd_type;
+                    break;
                 }
 
-                if (CHECK(client_start_tracker(&client, argv[1], argv[2]))) {
-                    ERR(status, "cannot start tracker");
-                    continue;
-                }
+                // check if the command is a standalone command
+                if (cmd.args_size == 1) {
+                    for (uint32_t j = 0, arg = cmds[i].exclusive[j]; arg != -1;
+                         j++, arg = cmds[i].exclusive[j]) {
+                        // find the flag by name
+                        if (strcmp(cmd.args[0].flag, cmds[i].args[arg].short_name) == 0 ||
+                            strcmp(cmd.args[0].flag, cmds[i].args[arg].long_name) == 0) {
+                            // check if value is non null
+                            if (cmds[i].args[arg].placeholder && !cmd.args[0].value) {
+                                ERR_GENERIC("value must be non-null for %s", cmd.args[0].flag);
+                                cmd_type = CMD_ERROR;
+                            } else {
+                                cmd_type = cmds[i].args[arg].cmd_type;
+                            }
 
-                continue;
-            }
-
-            if (strcmp(cmd.args[0].flag, "-stop") == 0) {
-                if (!client.tracker) {
-                    ERR_GENERIC("you must enable the tracker");
-                    continue;
-                }
-
-                if (CHECK(client_stop_tracker(&client))) {
-                    ERR(status, "cannot stop tracker");
-                    continue;
-                }
-
-                continue;
-            }
-
-            if (strcmp(cmd.args[0].flag, "-state") == 0) {
-                if (!client.tracker) {
-                    ERR_GENERIC("you must enable the tracker");
-                    continue;
-                }
-
-                tracker_state(client.tracker);
-
-                continue;
-            }
-
-            if (strcmp(cmd.args[0].flag, "-stab") == 0) {
-                if (!client.tracker) {
-                    ERR_GENERIC("you must enable the tracker");
-                    continue;
-                }
-
-                if (CHECK(tracker_stabilize(client.tracker))) {
-                    ERR(status, "stabilize error");
-                } else if (status == 1) {
-                    ERR_GENERIC("stopping tracker, rejoin network");
-
-                    if (CHECK(client_stop_tracker(&client))) {
-                        ERR(status, "cannot stop tracker");
+                            break;
+                        }
                     }
                 }
 
-                continue;
-            }
+                // command was standalone
+                if (cmd_type != CMD_UNKNOWN) {
+                    break;
+                }
 
-            if (strcmp(cmd.args[0].flag, "-h") == 0) {
-                print_cmd_help(LOG, &cmds[0]);
+                // command was not standalone
+                // take each arg and validate it
+                for (uint32_t j = 0; j < cmd.args_size; j++) {
+                    uint32_t arg = -1;
 
-                continue;
+                    for (uint32_t k = 0; k < cmds[i].args_size; k++) {
+                        if (strcmp(cmd.args[j].flag, cmds[i].args[k].short_name) == 0 ||
+                            strcmp(cmd.args[j].flag, cmds[i].args[k].long_name) == 0) {
+                            arg = k;
+
+                            break;
+                        }
+                    }
+
+                    if (-1 == arg) {
+                        ERR_GENERIC("invalid flag %s", cmd.args[j].flag);
+                        cmd_type = CMD_ERROR;
+                        break;
+                    }
+
+                    if (is_arg_exclusive(&cmds[i], arg)) {
+                        ERR_GENERIC("flag %s should be used alone", cmd.args[j].flag);
+                        cmd_type = CMD_ERROR;
+                        break;
+                    }
+
+                    // check if value is non null
+                    if (cmds[i].args[arg].placeholder && !cmd.args[j].value) {
+                        ERR_GENERIC("value must be non-null for %s", cmd.args[j].flag);
+                        cmd_type = CMD_ERROR;
+                        break;
+                    }
+
+                    cmd_type = cmds[i].args[arg].cmd_type;
+                }
+
+                break;
             }
         }
 
-        // search and download have implementations for both trackers and
-        // non-trackers
-        if (strcmp(cmd.name, "search") == 0) {
-            if (!(1 <= cmd.args_size && cmd.args_size <= 3)) {
-                ERR_GENERIC("invalid number of args");
+        if (cmd_type == CMD_ERROR) {
+            continue;
+        }
+
+        // 3. execute the command
+        switch (cmd_type) {
+        case CMD_TRACKER_START: {
+            if (client.tracker) {
+                ERR_GENERIC("tracker already started");
                 continue;
             }
 
-            if (strcmp(cmd.args[0].flag, "-h") == 0) {
-                print_cmd_help(LOG, &cmds[1]);
-
+            if (CHECK(client_start_tracker(&client, argv[1], argv[2]))) {
+                ERR(status, "cannot start tracker");
+                continue;
+            }
+            break;
+        }
+        case CMD_TRACKER_STOP: {
+            if (!client.tracker) {
+                ERR_GENERIC("you must enable the tracker");
                 continue;
             }
 
+            if (CHECK(client_stop_tracker(&client))) {
+                ERR(status, "cannot stop tracker");
+                continue;
+            }
+            break;
+        }
+        case CMD_TRACKER_STABILIZE: {
+            if (!client.tracker) {
+                ERR_GENERIC("you must enable the tracker");
+                continue;
+            }
+
+            if (CHECK(tracker_stabilize(client.tracker))) {
+                ERR(status, "stabilize error");
+            } else if (status == 1) {
+                ERR_GENERIC("stopping tracker, rejoin network");
+
+                if (CHECK(client_stop_tracker(&client))) {
+                    ERR(status, "cannot stop tracker");
+                }
+            }
+
+            break;
+        }
+        case CMD_TRACKER_STATE: {
+            if (!client.tracker) {
+                ERR_GENERIC("you must enable the tracker");
+                continue;
+            }
+
+            tracker_state(client.tracker);
+
+            break;
+        }
+        case CMD_TRACKER_HELP: {
+            print_cmd_help(LOG, &cmds[0]);
+            break;
+        }
+        case CMD_SEARCH: {
+            // TODO: check flags with short or long names
             query_t query;
             memset(&query, 0, sizeof(query_t));
             query.ignore_id = query.ignore_name = query.ignore_size = 1;
@@ -322,128 +368,84 @@ int32_t main(int32_t argc, char **argv) {
 
             free(results);
 
-            continue;
+            break;
         }
-
-        if (strcmp(cmd.name, "download") == 0) {
-            if (cmd.args_size != 1) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
-
-            // download a key
-            if (strcmp(cmd.args[0].flag, "-k") == 0) {
-                key2_t id;
-
-                if (CHECK(key_from_text(&id, cmd.args[0].value))) {
-                    ERR(status, "invalid key format");
-                    continue;
-                }
-
-                if (!client.tracker) {
-                    if (CHECK(client_download(&client, &id))) {
-                        ERR(status, "download error");
-                        continue;
-                    }
-                } else {
-                    if (CHECK(tracker_download(client.tracker, &id))) {
-                        ERR(status, "download error");
-                        continue;
-                    }
-                }
-
-                continue;
-            }
-
-            // list downloads
-            if (strcmp(cmd.args[0].flag, "-l") == 0) {
-                print_downloader(LOG, &client.downloader);
-
-                continue;
-            }
-
-            // pause a download
-            if (strcmp(cmd.args[0].flag, "-p") == 0) {
-                if (CHECK(downloader_pause(&client.downloader,
-                                           atoi(cmd.args[0].value)))) {
-                    ERR(status, "cannot pause download");
-                }
-
-                continue;
-            }
-
-            if (strcmp(cmd.args[0].flag, "-h") == 0) {
-                print_cmd_help(LOG, &cmds[2]);
-
-                continue;
-            }
+        case CMD_SEARCH_HELP: {
+            print_cmd_help(LOG, &cmds[1]);
+            break;
         }
+        case CMD_DOWNLOAD: {
+            key2_t id;
 
-        if (strcmp(cmd.name, "upload") == 0) {
+            if (CHECK(key_from_text(&id, cmd.args[0].value))) {
+                ERR(status, "invalid key format");
+                continue;
+            }
+
             if (!client.tracker) {
-                ERR_GENERIC("you must enable the tracker");
-                continue;
-            }
-
-            if (cmd.args_size != 1) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
-
-            // upload file by path
-            if (strcmp(cmd.args[0].flag, "-p") == 0) {
-                if (CHECK(tracker_upload(client.tracker, cmd.args[0].value,
-                                         &client.bootstrap_addr))) {
-                    ERR(status, "upload error");
+                if (CHECK(client_download(&client, &id))) {
+                    ERR(status, "download error");
                     continue;
                 }
-
-                continue;
-            }
-
-            if (strcmp(cmd.args[0].flag, "-h") == 0) {
-                print_cmd_help(LOG, &cmds[3]);
-
-                continue;
-            }
-        }
-
-        // regular client commands
-        if (strcmp(cmd.name, "help") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
-
-            print_help();
-
-            continue;
-        }
-
-        if (strcmp(cmd.name, "clear") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
-
-            system("clear");
-            continue;
-        }
-
-        if (strcmp(cmd.name, "quit") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
+            } else {
+                if (CHECK(tracker_download(client.tracker, &id))) {
+                    ERR(status, "download error");
+                    continue;
+                }
             }
 
             break;
         }
+        case CMD_DOWNLOAD_LIST: {
+            print_downloader(LOG, &client.downloader);
+            break;
+        }
+        case CMD_DOWNLOAD_PAUSE: {
+            if (CHECK(downloader_pause(&client.downloader,
+                                       atoi(cmd.args[0].value)))) {
+                ERR(status, "cannot pause download");
+            }
 
-        ERR_GENERIC("invalid command");
+            break;
+        }
+        case CMD_DOWNLOAD_HELP: {
+            print_cmd_help(LOG, &cmds[2]);
+            break;
+        }
+        case CMD_UPLOAD: {
+            if (CHECK(tracker_upload(client.tracker, cmd.args[0].value,
+                                     &client.bootstrap_addr))) {
+                ERR(status, "upload error");
+                continue;
+            }
+                
+            break;
+        }
+        case CMD_UPLOAD_HELP: {
+            print_cmd_help(LOG, &cmds[3]);
+            break;
+        }
+        case CMD_HELP: {
+            print_cmds_help(LOG, cmds, cmds_size);
+            break;
+        }
+        case CMD_CLEAR: {
+            system("clear");
+            break;
+        }
+        case CMD_QUIT: {
+            running = 0;
+            break;
+        }
+        default: {
+            ERR_GENERIC("unknown command, see help");
+            break;
+        }
+        }
     }
 
     if (CHECK(client_cleanup(&client))) {
-        ERR(status, "cannot stop client\n");
+        ERR(status, "cannot stop client");
         exit(-1);
     }
 

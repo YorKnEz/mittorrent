@@ -37,7 +37,9 @@ int32_t cmd_parse(parsed_cmd_t *cmd, char *buf) {
     int32_t last_tok_flag = 0;
 
     while (p && p - buf + 1 < buf_size) {
-        p = p + 1;
+        while (p - buf + 1 < buf_size && *p == 0) {
+            p = p + 1;
+        }
 
         // `cmd value` case
         if (last_tok_flag == 0 && p[0] != '-') {
@@ -89,11 +91,6 @@ int32_t cmd_parse(parsed_cmd_t *cmd, char *buf) {
         }
 
         p = strchr(p, 0);
-
-        // skip sequences of NULL
-        if (p - buf + 1 < buf_size && strlen(p + 1) == 0) {
-            p += 1;
-        }
     }
 
     if (cmd->args[cmd->args_size].flag) {
@@ -103,7 +100,7 @@ int32_t cmd_parse(parsed_cmd_t *cmd, char *buf) {
     return 0;
 }
 
-void print_cmd(log_t log_type, parsed_cmd_t *cmd) {
+void print_parsed_cmd(log_t log_type, parsed_cmd_t *cmd) {
     print(log_type, "%s: %d args\n", cmd->name, cmd->args_size);
 
     for (uint32_t i = 0; i < cmd->args_size; i++) {
@@ -162,7 +159,7 @@ void print_cmd_help(log_t log_type, cmd_t *cmd) {
         for (uint32_t i = 0; cmd->exclusive[i] != -1; i++) {
             print(log_type, "%s", cmd->args[cmd->exclusive[i]].short_name);
 
-            if (cmd->exclusive[i + 1]) {
+            if (cmd->exclusive[i + 1] != -1) {
                 print(log_type, "|");
             }
         }
@@ -174,7 +171,7 @@ void print_cmd_help(log_t log_type, cmd_t *cmd) {
             continue;
         }
 
-        print(log_type, "%s ", cmd->args[i].short_name);
+        print(log_type, "[%s] ", cmd->args[i].short_name);
     }
     print(log_type, "\n\n");
 
@@ -183,5 +180,28 @@ void print_cmd_help(log_t log_type, cmd_t *cmd) {
     print(log_type, "     %s\n\n", cmd->desc);
     for (uint32_t i = 0; i < cmd->args_size; i++) {
         print_cmd_arg(log_type, &cmd->args[i]);
+    }
+}
+
+void print_cmds_help(log_t log_type, cmd_t *cmds, uint32_t cmds_size) {
+    // PROLOG
+    print(log_type,
+          ANSI_COLOR_RED "PROLOG\n" ANSI_COLOR_RESET
+                         "    This is the torrent client of the project\n\n");
+
+    // DESCRIPTION
+    print(log_type, ANSI_COLOR_RED "DESCRIPTION\n" ANSI_COLOR_RESET
+                              "    The list of commands is the following\n\n");
+
+    // COMMANDS
+    print(log_type, ANSI_COLOR_RED "COMMANDS\n" ANSI_COLOR_RESET);
+    
+    for (uint32_t i = 0; i < cmds_size; i++) {
+        if (cmds[i].args_size > 0) {
+            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - see " ANSI_COLOR_GREEN "%s -h" ANSI_COLOR_RESET, cmds[i].cmd_name, cmds[i].cmd_name);
+        } else {
+            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - %s", cmds[i].cmd_name, cmds[i].desc);
+        }
+        print(log_type, "\n\n");
     }
 }
