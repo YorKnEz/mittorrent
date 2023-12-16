@@ -9,8 +9,16 @@ Error codes to be used by internal libs for user errors propagation
 
 // macros used for error propagation
 #define CHECK(stmt) (status = (stmt)) < 0
-#define ERR(err_code, generic_error) print(LOG, "error: %s\n", err_code == ERR_GENERIC ? generic_error : get_err_msg(err_code))
-#define ERR_GENERIC(generic_error) print(LOG, "error: %s\n", generic_error)
+#define ERR(err_code, generic_error, ...) {                                   \
+    if (err_code == ERR_GENERIC) {                                            \
+        print(LOG, "error: " generic_error "\n" __VA_OPT__(,) __VA_ARGS__);   \
+    } else {                                                                  \
+        print(LOG, "error: %s\n", get_err_msg(err_code));                     \
+    }                                                                         \
+}
+#define ERR_GENERIC(generic_error, ...) {                                     \
+    print(LOG, "error: " generic_error "\n" __VA_OPT__(,) __VA_ARGS__);       \
+}
 
 typedef enum {
     ERR_INVALID_CMD = -1000,  // enforce all err codes to be negative
@@ -23,7 +31,7 @@ typedef enum {
     ERR_INVALID_FILE,
     ERR_FILE_NOT_FOUND,
 
-    ERR_GENERIC = -1,        // return -1 and show a generic error message
+    ERR_GENERIC = -1,         // return -1 and show a generic error message
     ERR_SUCCESS = 0,          // return 0
 } error_t;
 
