@@ -116,16 +116,6 @@ void print_parsed_cmd(log_t log_type, parsed_cmd_t *cmd) {
     }
 }
 
-int32_t is_arg_exclusive(cmd_t *cmd, uint32_t index) {
-    for (uint32_t i = 0; cmd->exclusive[i] != -1; i++) {
-        if (cmd->exclusive[i] == index) {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 void print_cmd_arg(log_t log_type, cmd_arg_t *arg) {
     print(log_type,
           "    " ANSI_COLOR_RED "%s" ANSI_COLOR_RESET "," ANSI_COLOR_RED
@@ -153,25 +143,39 @@ void print_cmd_help(log_t log_type, cmd_t *cmd) {
           ANSI_COLOR_RED "SYNOPSIS" ANSI_COLOR_RESET "\n"
                          "    " ANSI_COLOR_RED "%s" ANSI_COLOR_RESET " ",
           cmd->cmd_name);
-    // print exclusive args if they exist
-    if (cmd->exclusive[0] != -1) {
-        print(log_type, "[");
-        for (uint32_t i = 0; cmd->exclusive[i] != -1; i++) {
-            print(log_type, "%s", cmd->args[cmd->exclusive[i]].short_name);
 
-            if (cmd->exclusive[i + 1] != -1) {
-                print(log_type, "|");
+    // count exclusive args
+    int32_t excl = 0;
+    for (uint32_t i = 0; i < cmd->args_size; i++) {
+        if (cmd->args[i].excl) {
+            excl++;
+        }
+    }
+
+    // print exclusive args if they exist
+    for (uint32_t i = 0, excli = 0; excl && i < cmd->args_size; i++) {
+        if (cmd->args[i].excl) {
+            if (excli == 0) {
+                print(LOG, "[");
+            }
+
+            print(LOG, "%s", cmd->args[i].short_name);
+
+            excli++;
+
+            if (excli == excl) {
+                print(LOG, "] ");
+            } else {
+                print(LOG, "|");
             }
         }
-        print(log_type, "] ");
     }
-    for (uint32_t i = 0; i < cmd->args_size; i++) {
-        // skip exclusive args
-        if (is_arg_exclusive(cmd, i)) {
-            continue;
-        }
 
-        print(log_type, "[%s] ", cmd->args[i].short_name);
+    // print the rest of the args
+    for (uint32_t i = 0; i < cmd->args_size; i++) {
+        if (!cmd->args[i].excl) {
+            print(log_type, "[%s] ", cmd->args[i].short_name);
+        }
     }
     print(log_type, "\n\n");
 

@@ -7,56 +7,60 @@ client_t client;
 int32_t main(int32_t argc, char **argv) {
     uint32_t cmds_size = 7;
     cmd_t cmds[7] = {
-        {CMD_UNKNOWN,
-         "tracker",
-         "Manage tracker operations.",
-         5,
-         {
-             {CMD_TRACKER_HELP, "-h", "--help", NULL, "Print this message."},
-             {CMD_TRACKER_START, "-s", "--start", NULL,
-              "Start the tracker in order to be able to upload and seed for "
-              "others"},
-             {CMD_TRACKER_STOP, "-t", "--stop", NULL, "Stop the tracker"},
-             {CMD_TRACKER_STATE, "-l", "--state", NULL,
-              "List the tracker state"},
-             {CMD_TRACKER_STABILIZE, "-r", "--stabilize", NULL,
-              "Stabilize the state of the tracker"},
-         },
-         {0, 1, 2, 3, 4, -1}},
-        {CMD_SEARCH,
-         "search",
-         "Search for a file on the network.",
-         4,
-         {
-             {CMD_SEARCH_HELP, "-h", "--help", NULL, "Print this message."},
-             {CMD_SEARCH, "-i", "--id", "FILE_ID", "Search by id of the file"},
-             {CMD_SEARCH, "-n", "--name", "FILE_NAME",
-              "Search all files that include " ANSI_COLOR_GREEN
-              "FILE_NAME" ANSI_COLOR_RESET " in their name"},
-             {CMD_SEARCH, "-s", "--size", "FILE_SIZE",
-              "Search by size of the file"},
-         },
-         {0, -1}},
+        {
+            CMD_UNKNOWN,
+            "tracker",
+            "Manage tracker operations.",
+            5,
+            {
+                {CMD_TRACKER_HELP, 1, "-h", "--help", NULL,
+                 "Print this message."},
+                {CMD_TRACKER_START, 1, "-s", "--start", NULL,
+                 "Start the tracker in order to be able to upload and seed for "
+                 "others"},
+                {CMD_TRACKER_STOP, 1, "-t", "--stop", NULL, "Stop the tracker"},
+                {CMD_TRACKER_STATE, 1, "-l", "--state", NULL,
+                 "List the tracker state"},
+                {CMD_TRACKER_STABILIZE, 1, "-r", "--stabilize", NULL,
+                 "Stabilize the state of the tracker"},
+            },
+        },
+        {
+            CMD_SEARCH,
+            "search",
+            "Search for a file on the network.",
+            4,
+            {
+                {CMD_SEARCH_HELP, 1, "-h", "--help", NULL,
+                 "Print this message."},
+                {CMD_SEARCH, 0, "-i", "--id", "FILE_ID",
+                 "Search by id of the file"},
+                {CMD_SEARCH, 0, "-n", "--name", "FILE_NAME",
+                 "Search all files that include " ANSI_COLOR_GREEN
+                 "FILE_NAME" ANSI_COLOR_RESET " in their name"},
+                {CMD_SEARCH, 0, "-s", "--size", "FILE_SIZE",
+                 "Search by size of the file"},
+            },
+        },
         {
             CMD_UNKNOWN,
             "download",
             "Manage downloader operations.",
             4,
             {
-                {CMD_DOWNLOAD_HELP, "-h", "--help", NULL,
+                {CMD_DOWNLOAD_HELP, 1, "-h", "--help", NULL,
                  "Print this message."},
-                {CMD_DOWNLOAD, "-i", "--id", "FILE_ID",
+                {CMD_DOWNLOAD, 1, "-i", "--id", "FILE_ID",
                  "Add the file with given id to the downloads list. If the id "
                  "is "
                  "already in the download list, the download is restarted."},
-                {CMD_DOWNLOAD_LIST, "-l", "--list", NULL,
+                {CMD_DOWNLOAD_LIST, 1, "-l", "--list", NULL,
                  "List all of the downloads."},
-                {CMD_DOWNLOAD_PAUSE, "-p", "--pause", "INDEX",
+                {CMD_DOWNLOAD_PAUSE, 1, "-p", "--pause", "INDEX",
                  "Pause the download with the given index. The index is taken "
                  "out "
                  "of the downloads list."},
             },
-            {0, 1, 2, 3, -1},
         },
         {
             CMD_UNKNOWN,
@@ -64,11 +68,11 @@ int32_t main(int32_t argc, char **argv) {
             "Upload a file to the network.",
             2,
             {
-                {CMD_UPLOAD_HELP, "-h", "--help", NULL, "Print this message."},
-                {CMD_UPLOAD, "-p", "--path", "PATH",
+                {CMD_UPLOAD_HELP, 1, "-h", "--help", NULL,
+                 "Print this message."},
+                {CMD_UPLOAD, 1, "-p", "--path", "PATH",
                  "The path of the file to upload on the network."},
             },
-            {0, 1, -1},
         },
         {
             CMD_HELP,
@@ -76,7 +80,6 @@ int32_t main(int32_t argc, char **argv) {
             "List all commands of the client.",
             0,
             {},
-            {-1},
         },
         {
             CMD_CLEAR,
@@ -84,7 +87,6 @@ int32_t main(int32_t argc, char **argv) {
             "Clear the terminal screen.",
             0,
             {},
-            {-1},
         },
         {
             CMD_QUIT,
@@ -92,7 +94,6 @@ int32_t main(int32_t argc, char **argv) {
             "Exit the client.",
             0,
             {},
-            {-1},
         },
     };
 
@@ -133,39 +134,15 @@ int32_t main(int32_t argc, char **argv) {
                     break;
                 }
 
-                // check if the command is a standalone command
-                if (cmd.args_size == 1) {
-                    for (uint32_t j = 0, arg = cmds[i].exclusive[j]; arg != -1;
-                         j++, arg = cmds[i].exclusive[j]) {
-                        // find the flag by name
-                        if (strcmp(cmd.args[0].flag, cmds[i].args[arg].short_name) == 0 ||
-                            strcmp(cmd.args[0].flag, cmds[i].args[arg].long_name) == 0) {
-                            // check if value is non null
-                            if (cmds[i].args[arg].placeholder && !cmd.args[0].value) {
-                                ERR_GENERIC("value must be non-null for %s", cmd.args[0].flag);
-                                cmd_type = CMD_ERROR;
-                            } else {
-                                cmd_type = cmds[i].args[arg].cmd_type;
-                            }
-
-                            break;
-                        }
-                    }
-                }
-
-                // command was standalone
-                if (cmd_type != CMD_UNKNOWN) {
-                    break;
-                }
-
-                // command was not standalone
                 // take each arg and validate it
                 for (uint32_t j = 0; j < cmd.args_size; j++) {
                     uint32_t arg = -1;
 
                     for (uint32_t k = 0; k < cmds[i].args_size; k++) {
-                        if (strcmp(cmd.args[j].flag, cmds[i].args[k].short_name) == 0 ||
-                            strcmp(cmd.args[j].flag, cmds[i].args[k].long_name) == 0) {
+                        if (strcmp(cmd.args[j].flag,
+                                   cmds[i].args[k].short_name) == 0 ||
+                            strcmp(cmd.args[j].flag,
+                                   cmds[i].args[k].long_name) == 0) {
                             arg = k;
 
                             break;
@@ -178,15 +155,17 @@ int32_t main(int32_t argc, char **argv) {
                         break;
                     }
 
-                    if (is_arg_exclusive(&cmds[i], arg)) {
-                        ERR_GENERIC("flag %s should be used alone", cmd.args[j].flag);
+                    if (cmds[i].args[arg].excl && cmd.args_size > 1) {
+                        ERR_GENERIC("flag %s should be used alone",
+                                    cmd.args[j].flag);
                         cmd_type = CMD_ERROR;
                         break;
                     }
 
                     // check if value is non null
                     if (cmds[i].args[arg].placeholder && !cmd.args[j].value) {
-                        ERR_GENERIC("value must be non-null for %s", cmd.args[j].flag);
+                        ERR_GENERIC("value must be non-null for %s",
+                                    cmd.args[j].flag);
                         cmd_type = CMD_ERROR;
                         break;
                     }

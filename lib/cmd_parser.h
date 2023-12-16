@@ -56,6 +56,7 @@ typedef enum {
 
 typedef struct {
     cmd_type_t cmd_type;        // the type of a standalone command, otherwise unknown
+    int32_t excl;               // is flag exclusive or not
     const char *short_name;     // short name of a flag -f
     const char *long_name;      // long name of a flag --flag
     const char *placeholder;    // if the flag should take a value, this is the name of the value
@@ -73,12 +74,16 @@ typedef struct {
     const char *desc;           // description of command
     uint32_t args_size;         // the number of args that are defined for it
     cmd_arg_t args[10];         // the args
-    uint32_t exclusive[10];     // which args should be used as standalone args
 } cmd_t;
 
-int32_t cmd_parse(parsed_cmd_t *cmd, char *buf);
+typedef struct {
+    const char *prolog;
+    const char *desc;
+    uint32_t cmds_size;
+    cmd_t *cmds;
+} cmds_t;
 
-int32_t is_arg_exclusive(cmd_t *cmd, uint32_t index);
+int32_t cmd_parse(parsed_cmd_t *cmd, char *buf);
 
 void print_parsed_cmd(log_t log_type, parsed_cmd_t *cmd);
 
