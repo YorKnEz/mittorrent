@@ -105,7 +105,7 @@ int32_t main(int32_t argc, char **argv) {
     }
 
     if (CHECK(client_init(&client))) {
-        ERR(status, "cannot initialize client\n");
+        ERR(status, "cannot initialize client");
         exit(-1);
     }
 

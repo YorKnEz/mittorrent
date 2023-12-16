@@ -27,7 +27,7 @@ int32_t main() {
     int32_t status = 0;
 
     if (CHECK(server_init(&server))) {
-        ERR(status, "cannot initialize server\n");
+        ERR(status, "cannot initialize server");
         exit(-1);
     }
 
@@ -95,7 +95,7 @@ int32_t main() {
     }
 
     if (CHECK(server_cleanup(&server))) {
-        ERR(status, "cannot stop server\n");
+        ERR(status, "cannot stop server");
         exit(-1);
     }
 
