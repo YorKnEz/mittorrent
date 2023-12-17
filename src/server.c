@@ -394,8 +394,8 @@ int32_t server_init(server_t *server) {
     }
 
     cmds_t cmds = {
-        "This is the torrent server of the project",
-        "The list of commands is described below",
+        "This is the torrent server of the project.",
+        "The list of commands is described below.",
         5,
         {
             {
@@ -407,9 +407,9 @@ int32_t server_init(server_t *server) {
                     {CMD_SERVER_HELP, 1, "-h", "--help", NULL,
                      "Print this message."},
                     {CMD_SERVER_START, 1, "-s", "--start", NULL,
-                     "Starts the server"},
+                     "Starts the server."},
                     {CMD_SERVER_STOP, 1, "-t", "--stop", NULL,
-                     "Stops the server"},
+                     "Stops the server."},
                 },
             },
             {
@@ -421,9 +421,9 @@ int32_t server_init(server_t *server) {
                     {CMD_DB_HELP, 1, "-h", "--help", NULL,
                      "Print this message."},
                     {CMD_DB_LIST_PEERS, 1, "-p", "--peers", NULL,
-                     "List the currently connected peers"},
+                     "List the currently connected peers."},
                     {CMD_DB_LIST_UPLOADS, 1, "-u", "--uploads", NULL,
-                     "List the file that the server indexed"},
+                     "List the file that the server indexed."},
                 },
             },
             {

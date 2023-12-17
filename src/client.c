@@ -291,6 +291,11 @@ int32_t main(int32_t argc, char **argv) {
             break;
         }
         case CMD_UPLOAD: {
+            if (!client.tracker) {
+                ERR_GENERIC("you must enable the tracker");
+                continue;
+            }
+
             if (CHECK(tracker_upload(client.tracker, cmd.args[0].value,
                                      &client.bootstrap_addr))) {
                 ERR(status, "upload error");
@@ -361,8 +366,8 @@ int32_t client_init(client_t *client) {
     client->periodic_check = 1;
 
     cmds_t cmds = {
-        "This is the torrent client of the project",
-        "The list of commands is described below",
+        "This is the torrent client of the project.",
+        "The list of commands is described below.",
         7,
         {
             {
@@ -375,14 +380,13 @@ int32_t client_init(client_t *client) {
                      "Print this message."},
                     {CMD_TRACKER_START, 1, "-s", "--start", NULL,
                      "Start the tracker in order to be able to upload and seed "
-                     "for "
-                     "others"},
+                     "for others."},
                     {CMD_TRACKER_STOP, 1, "-t", "--stop", NULL,
-                     "Stop the tracker"},
+                     "Stop the tracker."},
                     {CMD_TRACKER_STATE, 1, "-l", "--state", NULL,
-                     "List the tracker state"},
+                     "List the tracker state."},
                     {CMD_TRACKER_STABILIZE, 1, "-r", "--stabilize", NULL,
-                     "Stabilize the state of the tracker"},
+                     "Stabilize the state of the tracker."},
                 },
             },
             {
@@ -394,12 +398,12 @@ int32_t client_init(client_t *client) {
                     {CMD_SEARCH_HELP, 1, "-h", "--help", NULL,
                      "Print this message."},
                     {CMD_SEARCH, 0, "-i", "--id", "FILE_ID",
-                     "Search by id of the file"},
+                     "Search by id of the file."},
                     {CMD_SEARCH, 0, "-n", "--name", "FILE_NAME",
                      "Search all files that include " ANSI_COLOR_GREEN
-                     "FILE_NAME" ANSI_COLOR_RESET " in their name"},
+                     "FILE_NAME" ANSI_COLOR_RESET " in their name."},
                     {CMD_SEARCH, 0, "-s", "--size", "FILE_SIZE",
-                     "Search by size of the file"},
+                     "Search by size of the file."},
                 },
             },
             {
@@ -412,17 +416,13 @@ int32_t client_init(client_t *client) {
                      "Print this message."},
                     {CMD_DOWNLOAD, 1, "-i", "--id", "FILE_ID",
                      "Add the file with given id to the downloads list. If the "
-                     "id "
-                     "is "
-                     "already in the download list, the download is "
+                     "id is already in the download list, the download is "
                      "restarted."},
                     {CMD_DOWNLOAD_LIST, 1, "-l", "--list", NULL,
                      "List all of the downloads."},
                     {CMD_DOWNLOAD_PAUSE, 1, "-p", "--pause", "INDEX",
                      "Pause the download with the given index. The index is "
-                     "taken "
-                     "out "
-                     "of the downloads list."},
+                     "taken out of the downloads list."},
                 },
             },
             {

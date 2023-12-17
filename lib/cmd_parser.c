@@ -254,7 +254,7 @@ void print_cmds_help(log_t log_type, cmds_t *cmds) {
     
     for (uint32_t i = 0; i < cmds->size; i++) {
         if (cmds->list[i].args_size > 0) {
-            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - see " ANSI_COLOR_GREEN "%s -h" ANSI_COLOR_RESET, cmds->list[i].cmd_name, cmds->list[i].cmd_name);
+            print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - See " ANSI_COLOR_GREEN "%s -h" ANSI_COLOR_RESET ".", cmds->list[i].cmd_name, cmds->list[i].cmd_name);
         } else {
             print(log_type, "    " ANSI_COLOR_GREEN "%10s" ANSI_COLOR_RESET " - %s", cmds->list[i].cmd_name, cmds->list[i].desc);
         }

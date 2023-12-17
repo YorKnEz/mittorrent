@@ -25,9 +25,9 @@ typedef struct {
 } parsed_cmd_arg_t;
 
 typedef struct {
-    char *name;         // command name
+    char *name;                 // command name
     uint32_t args_size;
-    parsed_cmd_arg_t args[10]; // args array, max 10
+    parsed_cmd_arg_t args[10];  // args array, max 10
 } parsed_cmd_t;
 
 // all commands and standalone args of commands correspond to a cmd type
@@ -78,7 +78,6 @@ typedef struct {
 // for example all flags of type CMD_GROUP can be combined, but no other arg can make part of it
 // what about collisions?
 
-// TODO: remove exclusive
 typedef struct {
     cmd_type_t cmd_type;        // the default type of the command, can be unknown if the command contains only standalone commands
     const char *cmd_name;       // name of command
