@@ -466,8 +466,6 @@ int32_t server_cleanup(server_t *server) {
     pthread_mutex_destroy(&server->lock);
     pthread_mutex_destroy(&server->mlock);
 
-    file_list_free(&server->uploads);
-
     return status;
 }
 
@@ -496,6 +494,8 @@ int32_t server_start(server_t *server) {
 int32_t server_stop(server_t *server) {
     int32_t status = 0;
 
+    pthread_mutex_lock(&server->lock);
+    
     node_t *p = server->clients;
 
     while (p) {
@@ -513,10 +513,14 @@ int32_t server_stop(server_t *server) {
     }
 
     list_free(&server->clients);
+    server->client_read = NULL;
+    file_list_free(&server->uploads);
 
     pthread_mutex_lock(&server->running_lock);
     server->running = 0;
     pthread_mutex_unlock(&server->running_lock);
+
+    pthread_mutex_unlock(&server->lock);
 
     // send shutdown request to all threads
     // this is to make sure that all threads break out of their accepts
