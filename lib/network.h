@@ -40,6 +40,7 @@ PROTOCOL REQUESTS
     MOVE_DATA                       - tell a tracker that it needs to transfer keys
     UPLOAD                          - adds the file to it's local file list
     SHUTDOWN                        - shut down a client thread
+    SERVER_STOPPED                  - server announced that it's closing
 */
 
 typedef enum { 
@@ -60,7 +61,8 @@ typedef enum {
     BLOCKS,
     BLOCK,
     ADD_PEER,
-    SEARCH_PEER
+    SEARCH_PEER,
+    SERVER_STOPPED,
 } req_type_t;
 
 typedef struct {

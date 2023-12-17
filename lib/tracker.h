@@ -25,6 +25,10 @@ typedef struct {
     // used by threads to know when to stop
     int32_t running;
     pthread_mutex_t running_lock;
+
+    // used by threads to notify client that tracker should self-stop
+    int32_t server_running;
+    pthread_mutex_t server_running_lock;
     
     pthread_mutex_t lock;               // tracker structure lock
 
@@ -42,13 +46,11 @@ typedef struct {
     downloader_t *downloader;           // a pointer to the downloader module of the client
 } tracker_t;
 
-int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, struct sockaddr_in *server_addr);
-
-int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port);
 void tracker_local_server_thread(tracker_t *tracker);
 
+int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, struct sockaddr_in *server_addr);
+int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port);
 int32_t tracker_init_dht_connection(tracker_t *tracker, struct sockaddr_in *server_addr);
-
 int32_t tracker_cleanup(tracker_t *tracker);
 
 // tracker commands

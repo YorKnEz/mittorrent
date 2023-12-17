@@ -1,49 +1,5 @@
 #include "tracker.h"
 
-int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, struct sockaddr_in *server_addr) {
-    int32_t status = 0;
-
-    tracker->files = NULL;
-    tracker->local_files = NULL;
-    
-    if (CHECK(tracker_init_local_server(tracker, tracker_ip, tracker_port))) {
-        print(LOG_ERROR, "[tracker_init] Error at tracker_init_local_server\n");
-        return status;
-    }
-
-    if (CHECK(tracker_init_dht_connection(tracker, server_addr))) {
-        print(LOG_ERROR, "[tracker_init] Error at tracker_init_dht_connection\n");
-        return status;
-    }
-
-    return status;
-}
-
-int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port) {
-    int32_t status = 0;
-
-    // bind to some address
-    tracker->addr.sin_family = AF_INET;
-    tracker->addr.sin_addr.s_addr = inet_addr(tracker_ip);
-    tracker->addr.sin_port = htons(atoi(tracker_port));
-
-    if (CHECK(tracker->fd = get_server_socket(&tracker->addr))) {
-        print(LOG_ERROR, "[tracker_init_local_server] Error at get_server_socket\n");
-        return status;
-    }
-
-    pthread_mutex_init(&tracker->mlock, NULL);
-    pthread_mutex_init(&tracker->lock, NULL);
-
-    tracker->running = 1;
-
-    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
-        pthread_create(&tracker->tid[i], NULL, (void *(*)(void*))tracker_local_server_thread, tracker);
-    }
-
-    return status;
-}
-
 void tracker_local_server_thread(tracker_t *tracker) {
     int32_t tracker_fd;
     struct sockaddr_in tracker_addr;
@@ -502,13 +458,13 @@ void tracker_local_server_thread(tracker_t *tracker) {
                 }
             }
 
+            pthread_mutex_unlock(&tracker->lock);
+
             // send a zeroed file_t to the peer so it knows we're done sending files
             if (-1 == send_res(tracker_fd, SUCCESS, &zero, sizeof(file_t))) {
                 print(LOG_ERROR, "[MOVE_DATA] Error at send_res\n");
                 break;
             }
-
-            pthread_mutex_unlock(&tracker->lock);
 
             break;
         }
@@ -542,6 +498,22 @@ void tracker_local_server_thread(tracker_t *tracker) {
             print(LOG_DEBUG, "[tracker_local_server_thread] Received SHUTDOWN\n");
             break;
         }
+        case SERVER_STOPPED: {
+            print(LOG_DEBUG, "[tracker_local_server_thread] Received SERVER_STOPPED\n");
+
+            // send response before setting server_running on 0 because it is possible
+            // that the thread will be killed before sending the response
+            if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
+                print(LOG_ERROR, "[SERVER_STOPPED] Error at send_res\n");
+                break;
+            }
+
+            pthread_mutex_lock(&tracker->server_running_lock);
+            tracker->server_running = 0;
+            pthread_mutex_unlock(&tracker->server_running_lock);
+
+            break;
+        }
         default: {
             print(LOG_ERROR, "[tracker_local_server_thread] Invalid command\n");
 
@@ -564,6 +536,60 @@ void tracker_local_server_thread(tracker_t *tracker) {
     }
 
     pthread_exit(NULL);
+}
+
+int32_t tracker_init(tracker_t *tracker, const char *tracker_ip, const char *tracker_port, struct sockaddr_in *server_addr) {
+    int32_t status = 0;
+
+    tracker->files = NULL;
+    tracker->local_files = NULL;
+
+    pthread_mutex_init(&tracker->lock, NULL);
+
+    pthread_mutex_init(&tracker->server_running_lock, NULL);
+    tracker->server_running = 0;
+
+    pthread_mutex_init(&tracker->running_lock, NULL);
+    tracker->running = 1;
+    
+    if (CHECK(tracker_init_local_server(tracker, tracker_ip, tracker_port))) {
+        print(LOG_ERROR, "[tracker_init] Error at tracker_init_local_server\n");
+        return status;
+    }
+
+    if (CHECK(tracker_init_dht_connection(tracker, server_addr))) {
+        print(LOG_ERROR, "[tracker_init] Error at tracker_init_dht_connection\n");
+        return status;
+    }
+
+    // server is running if we get here
+    pthread_mutex_lock(&tracker->server_running_lock);
+    tracker->server_running = 1;
+    pthread_mutex_unlock(&tracker->server_running_lock);
+
+    return status;
+}
+
+int32_t tracker_init_local_server(tracker_t *tracker, const char *tracker_ip, const char *tracker_port) {
+    int32_t status = 0;
+
+    // bind to some address
+    tracker->addr.sin_family = AF_INET;
+    tracker->addr.sin_addr.s_addr = inet_addr(tracker_ip);
+    tracker->addr.sin_port = htons(atoi(tracker_port));
+
+    if (CHECK(tracker->fd = get_server_socket(&tracker->addr))) {
+        print(LOG_ERROR, "[tracker_init_local_server] Error at get_server_socket\n");
+        return status;
+    }
+
+    pthread_mutex_init(&tracker->mlock, NULL);
+
+    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
+        pthread_create(&tracker->tid[i], NULL, (void *(*)(void*))tracker_local_server_thread, tracker);
+    }
+
+    return status;
 }
 
 int32_t tracker_init_dht_connection(tracker_t *tracker, struct sockaddr_in *server_addr) {
@@ -702,8 +728,10 @@ int32_t tracker_cleanup(tracker_t *tracker) {
     shutdown(tracker->fd, SHUT_RDWR);
     close(tracker->fd);
 
-    pthread_mutex_destroy(&tracker->mlock);
     pthread_mutex_destroy(&tracker->lock);
+    pthread_mutex_destroy(&tracker->running_lock);
+    pthread_mutex_destroy(&tracker->server_running_lock);
+    pthread_mutex_destroy(&tracker->mlock);
 
     // before leaving, we must send the keys that we handle to our successor
     while (tracker->files) {

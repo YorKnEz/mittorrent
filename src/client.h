@@ -2,12 +2,16 @@
 #define CLIENT_H
 
 #include <sys/stat.h>
+#include <signal.h>
 
 #include "common.h"
 #include "tracker.h"
 
+#define PERIODIC_CHECK_INTERVAL 10
+
 typedef struct {
     struct sockaddr_in bootstrap_addr;  // address of the server
+    int32_t periodic_check;             // flag used to do periodic stabilizations and other status checks
 
     cmds_t cmds;                        // command parser module
     downloader_t downloader;            // downloader module

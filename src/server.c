@@ -2,135 +2,122 @@
 
 server_t server;
 
-void print_help() {
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
-    system("clear");
-
-    print(LOG,
-        ANSI_COLOR_RED "PROLOG\n" ANSI_COLOR_RESET
-        "    This is the torrent client of the project\n\n"
-        ANSI_COLOR_RED "DESCRIPTION\n" ANSI_COLOR_RESET
-        "    The list of commands is the following\n\n"
-        ANSI_COLOR_RED "COMMANDS\n" ANSI_COLOR_RESET
-        "    " ANSI_COLOR_GREEN "help    " ANSI_COLOR_RESET " - show this message;\n\n"
-        "    " ANSI_COLOR_GREEN "start   " ANSI_COLOR_RESET " - start the server;\n\n"
-        "    " ANSI_COLOR_GREEN "stop    " ANSI_COLOR_RESET " - stop the server;\n\n"
-        "    " ANSI_COLOR_GREEN "db      " ANSI_COLOR_RESET " - see " ANSI_COLOR_RED "db -h" ANSI_COLOR_RESET ";\n\n"
-        "    " ANSI_COLOR_GREEN "clear   " ANSI_COLOR_RESET " - clears the screen;\n\n"
-        "    " ANSI_COLOR_GREEN "quit    " ANSI_COLOR_RESET " - exit this terminal;\n\n");
-}
-
 int32_t main() {
     int32_t status = 0;
+    int32_t running = 1;
 
     if (CHECK(server_init(&server))) {
         ERR(status, "cannot initialize server");
         exit(-1);
     }
 
-    while (1) {
+    while (running) {
         char cmd_raw[512];
         print(LOG, "\n> ");
         fgets(cmd_raw, 511, stdin);
         cmd_raw[strlen(cmd_raw) - 1] = 0;
 
+        // 1. parse the command
         parsed_cmd_t cmd;
-
         if (CHECK(cmd_parse(&cmd, cmd_raw))) {
             ERR(status, "invalid command format");
             continue;
         }
-        
-        if (strcmp(cmd.name, "help") == 0) {
-            print_help();
-            
-            continue;
-        }
 
-        if (strcmp(cmd.name, "start") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
+        // 2. interpret the command
+        cmd_type_t cmd_type = CMD_UNKNOWN;
+        cmds_get_cmd_type(&server.cmds, &cmd, &cmd_type);
+
+        // 3. execute the command
+        switch (cmd_type) {
+        case CMD_SERVER_START: {
+            // no lock needed because the current thread is the only one that can modify it
+            if (server.running == 1) {
+                ERR_GENERIC("server is already started");
+                break;
             }
 
-            continue;
-        }
-
-        if (strcmp(cmd.name, "stop") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
+            if (CHECK(server_start(&server))) {
+                ERR(status, "cannot start server");
+                break;
             }
 
-            continue;
-        }
-
-        if (strcmp(cmd.name, "clear") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
-            
-            system("clear");
-            continue;
-        }
-
-        if (strcmp(cmd.name, "quit") == 0) {
-            if (cmd.args_size != 0) {
-                ERR_GENERIC("invalid number of args");
-                continue;
-            }
-            
             break;
         }
+        case CMD_SERVER_STOP: {
+            // no lock needed because the current thread is the only one that can modify it
+            if (server.running == 0) {
+                ERR_GENERIC("server is already stopped");
+                break;
+            }
 
-        ERR_GENERIC("invalid command");
-    }
+            if (CHECK(server_stop(&server))) {
+                ERR(status, "cannot stop server");
+                break;
+            }
 
-    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
-        pthread_join(server.tid[i], NULL);
+            break;
+        }
+        case CMD_SERVER_HELP: {
+            print_cmd_help(LOG, &server.cmds.list[0]);
+            break;
+        }
+        case CMD_DB_LIST_PEERS: {
+            pthread_mutex_lock(&server.lock);
+            print_list(LOG, &server.clients);
+            pthread_mutex_unlock(&server.lock);
+
+            break;
+        }
+        case CMD_DB_LIST_UPLOADS: {
+            pthread_mutex_lock(&server.lock);
+            print_file_list(LOG, &server.uploads);
+            pthread_mutex_unlock(&server.lock);
+
+            break;
+        }
+        case CMD_DB_HELP: {
+            print_cmd_help(LOG, &server.cmds.list[1]);
+            break;
+        }
+        case CMD_HELP: {
+            print_cmds_help(LOG, &server.cmds);
+            break;
+        }
+        case CMD_CLEAR: {
+            system("clear");
+            break;
+        }
+        case CMD_QUIT: {
+            running = 0;
+            break;
+        }
+        case CMD_ERROR: {
+            // handled already
+            break;
+        }
+        default: {
+            ERR_GENERIC("unknown command, see help");
+            break;
+        }
+        }
     }
 
     if (CHECK(server_cleanup(&server))) {
-        ERR(status, "cannot stop server");
+        ERR(status, "cannot cleanup server");
         exit(-1);
     }
 
     exit(0);
 }
 
-int32_t server_init(server_t *server) {
-    int32_t status = 0;
-
-    // init locks
-    pthread_mutex_init(&server->lock, NULL);
-    pthread_mutex_init(&server->mlock, NULL);
-
-    // server default address
-    server->addr.sin_family = AF_INET;
-    server->addr.sin_addr.s_addr = BOOTSTRAP_SERVER_IP;
-    server->addr.sin_port = htons(BOOTSTRAP_SERVER_PORT);
-
-    if (CHECK(server->fd = get_server_socket(&server->addr))) {
-        print(LOG_ERROR, "[server_init] Error at get_server_socket\n");
-        return status;
-    }
-
-    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
-        pthread_create(&server->tid[i], NULL, (void *(*)(void*))&server_thread, server);
-    }
-
-    return status;
-}
-
 void server_thread(server_t *server) {
     struct sockaddr_in client_addr;
     socklen_t client_size = sizeof(client_addr);
 
-    while (1) {
+    int32_t local_running = 1;
+
+    while (local_running) {
         pthread_mutex_lock(&server->mlock);
 
         int32_t client_fd = accept(server->fd, (struct sockaddr*)&client_addr, &client_size);
@@ -165,7 +152,6 @@ void server_thread(server_t *server) {
             pthread_mutex_lock(&server->lock);
 
             list_add(&server->clients, &new_client);
-            print_list(LOG_DEBUG, &server->clients);
 
             // give the new client a peer to connect to
             // so the it can connect to the dht network
@@ -217,7 +203,6 @@ void server_thread(server_t *server) {
 
             // remove client from clients list
             list_remove(&server->clients, &id);
-            print_list(LOG_DEBUG, &server->clients);
 
             // TODO: uploads may need to be recalibrated
 
@@ -365,6 +350,11 @@ void server_thread(server_t *server) {
                 
             break;
         }
+        case SHUTDOWN: {
+            // this request is used to break the blocking accept in case the thread doesn't realize that it should stop
+            print(LOG_DEBUG, "[server_thread] Received SHUTDOWN\n");
+            break;
+        }
         default: {
             print(LOG_DEBUG, "[server_thread] Invalid command\n");
 
@@ -380,21 +370,103 @@ void server_thread(server_t *server) {
         shutdown(client_fd, SHUT_RDWR);
         close(client_fd);
         free(msg);
+
+        pthread_mutex_lock(&server->running_lock);
+        local_running = server->running;
+        pthread_mutex_unlock(&server->running_lock);
     }
 
     pthread_exit(NULL);
 }
 
+int32_t server_init(server_t *server) {
+    int32_t status = 0;
+
+    // init locks
+    pthread_mutex_init(&server->running_lock, NULL);
+    pthread_mutex_init(&server->lock, NULL);
+    pthread_mutex_init(&server->mlock, NULL);
+
+    // init socket and threads
+    if (CHECK(server_start(server))) {
+        print(LOG_ERROR, "[server_init] Error at server_start\n");
+        return status;
+    }
+
+    cmds_t cmds = {
+        "This is the torrent server of the project",
+        "The list of commands is described below",
+        5,
+        {
+            {
+                CMD_UNKNOWN,
+                "server",
+                "Manage server state.",
+                3,
+                {
+                    {CMD_SERVER_HELP, 1, "-h", "--help", NULL,
+                     "Print this message."},
+                    {CMD_SERVER_START, 1, "-s", "--start", NULL,
+                     "Starts the server"},
+                    {CMD_SERVER_STOP, 1, "-t", "--stop", NULL,
+                     "Stops the server"},
+                },
+            },
+            {
+                CMD_UNKNOWN,
+                "db",
+                "Manage database state.",
+                3,
+                {
+                    {CMD_DB_HELP, 1, "-h", "--help", NULL,
+                     "Print this message."},
+                    {CMD_DB_LIST_PEERS, 1, "-p", "--peers", NULL,
+                     "List the currently connected peers"},
+                    {CMD_DB_LIST_UPLOADS, 1, "-u", "--uploads", NULL,
+                     "List the file that the server indexed"},
+                },
+            },
+            {
+                CMD_HELP,
+                "help",
+                "List all commands of the client.",
+                0,
+                {},
+            },
+            {
+                CMD_CLEAR,
+                "clear",
+                "Clear the terminal screen.",
+                0,
+                {},
+            },
+            {
+                CMD_QUIT,
+                "quit",
+                "Exit the client.",
+                0,
+                {},
+            },
+        }};
+
+    memcpy(&server->cmds, &cmds, sizeof(cmds_t));
+
+    return status;
+}
+
 int32_t server_cleanup(server_t *server) {
     int32_t status = 0;
 
-    shutdown(server->fd, SHUT_RDWR);
-    close(server->fd);
+    if (CHECK(server_stop(server))) {
+        print(LOG_ERROR, "[server_cleanup] Error at server_stop\n");
+        return status;
+    }
 
-    list_free(&server->clients);
-
+    pthread_mutex_destroy(&server->running_lock);
     pthread_mutex_destroy(&server->lock);
     pthread_mutex_destroy(&server->mlock);
+
+    file_list_free(&server->uploads);
 
     return status;
 }
@@ -402,7 +474,21 @@ int32_t server_cleanup(server_t *server) {
 int32_t server_start(server_t *server) {
     int32_t status = 0;
 
+    // server default address
+    server->addr.sin_family = AF_INET;
+    server->addr.sin_addr.s_addr = BOOTSTRAP_SERVER_IP;
+    server->addr.sin_port = htons(BOOTSTRAP_SERVER_PORT);
 
+    if (CHECK(server->fd = get_server_socket(&server->addr))) {
+        print(LOG_ERROR, "[server_init] Error at get_server_socket\n");
+        return status;
+    }
+
+    server->running = 1;
+
+    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
+        pthread_create(&server->tid[i], NULL, (void *(*)(void*))&server_thread, server);
+    }
 
     return status;
 }
@@ -413,13 +499,49 @@ int32_t server_stop(server_t *server) {
     node_t *p = server->clients;
 
     while (p) {
-        
-        
+        char *res;
+        uint32_t res_size;
+
+        if (CHECK(node_req(&p->node, SERVER_STOPPED, NULL, 0, &res, &res_size))) {
+            print(LOG_ERROR, "[server_stop] Error at node_req\n");
+            continue;
+        }
+
+        free(res);
+
         p = p->next;
     }
 
+    list_free(&server->clients);
+
+    pthread_mutex_lock(&server->running_lock);
+    server->running = 0;
+    pthread_mutex_unlock(&server->running_lock);
+
+    // send shutdown request to all threads
+    // this is to make sure that all threads break out of their accepts
+    // TODO: maybe some form of validation that the server wants to shutdown its threads
+    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
+        int32_t fd;
+
+        if (CHECK(fd = get_client_socket(&server->addr))) {
+            print(LOG_ERROR, "[server_stop] Error at get_client_socket\n");
+            return status;
+        }
+
+        if (CHECK(send_req(fd, SHUTDOWN, NULL, 0))) {
+            print(LOG_ERROR, "[server_stop] Error at send_req\n");
+            return status;
+        }
+    }
+    
+    // join all threads after gracefully shutting em down
+    for (int32_t i = 0; i < THREAD_POOL_SIZE; i++) {
+        pthread_join(server->tid[i], NULL);
+    }
+
+    shutdown(server->fd, SHUT_RDWR);
+    close(server->fd);
+
     return status;
 }
-
-int32_t server_list_clients(server_t *server);
-int32_t server_list_uploads(server_t *server);

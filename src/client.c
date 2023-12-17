@@ -4,6 +4,7 @@
 
 client_t client;
 
+void alarm_handle(int code) { client.periodic_check = 1; }
 
 int32_t main(int32_t argc, char **argv) {
     int32_t status = 0;
@@ -25,6 +26,49 @@ int32_t main(int32_t argc, char **argv) {
         fgets(cmd_raw, 511, stdin);
         cmd_raw[strlen(cmd_raw) - 1] = 0;
 
+        if (client.periodic_check) {
+            client.periodic_check = 0;
+
+            // periodically check for tracker clients if the server is still
+            // running also stabilize tracker
+            if (client.tracker) {
+                do {
+                    pthread_mutex_lock(&client.tracker->server_running_lock);
+                    int32_t server_running = client.tracker->server_running;
+                    pthread_mutex_unlock(&client.tracker->server_running_lock);
+
+                    // if it stopped, stop the tracker and notify user
+                    if (!server_running) {
+                        print(LOG, "the server has been stopped, disconnecting "
+                                   "tracker...\n");
+                        if (CHECK(client_stop_tracker(&client))) {
+                            ERR(status, "cannot stop tracker");
+                            continue;
+                        }
+                        print(LOG, "disconnected\n");
+
+                        continue;
+                    }
+
+                    print(LOG_DEBUG, "server running\n");
+
+                    if (CHECK(tracker_stabilize(client.tracker))) {
+                        ERR(status, "stabilize error");
+                    } else if (status == 1) {
+                        ERR_GENERIC("stopping tracker, rejoin network");
+
+                        if (CHECK(client_stop_tracker(&client))) {
+                            ERR(status, "cannot stop tracker");
+                        }
+
+                        continue;
+                    }
+                } while (0);
+            }
+
+            alarm(PERIODIC_CHECK_INTERVAL);
+        }
+
         // 1. parse the command
         parsed_cmd_t cmd;
         if (CHECK(cmd_parse(&cmd, cmd_raw))) {
@@ -35,10 +79,6 @@ int32_t main(int32_t argc, char **argv) {
         // 2. interpret the command
         cmd_type_t cmd_type = CMD_UNKNOWN;
         cmds_get_cmd_type(&client.cmds, &cmd, &cmd_type);
-
-        if (cmd_type == CMD_ERROR) {
-            continue;
-        }
 
         // 3. execute the command
         switch (cmd_type) {
@@ -275,6 +315,10 @@ int32_t main(int32_t argc, char **argv) {
             running = 0;
             break;
         }
+        case CMD_ERROR: {
+            // handled already
+            break;
+        }
         default: {
             ERR_GENERIC("unknown command, see help");
             break;
@@ -307,6 +351,14 @@ int32_t client_init(client_t *client) {
         print(LOG_ERROR, "[client_init] Error at downloader_init\n");
         return status;
     }
+
+    if (SIG_ERR == signal(SIGALRM, alarm_handle)) {
+        print(LOG_ERROR, "[client_init] Error at signal\n");
+        status = -1;
+        return status;
+    }
+
+    client->periodic_check = 1;
 
     cmds_t cmds = {
         "This is the torrent client of the project",
@@ -459,6 +511,9 @@ int32_t client_start_tracker(client_t *client, const char *tracker_ip,
     if (CHECK(tracker_init(client->tracker, tracker_ip, tracker_port,
                            &client->bootstrap_addr))) {
         print(LOG_ERROR, "[client_start_tracker] Cannot start tracker\n");
+        tracker_cleanup(client->tracker);
+        free(client->tracker);
+        client->tracker = NULL;
         return status;
     }
 

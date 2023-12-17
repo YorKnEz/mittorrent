@@ -34,6 +34,7 @@ typedef struct {
 // for example `download -i` is a standalone command so it has the CMD_DOWNLOAD assigned to it
 // `search -i id -n name -s size` is not a standalone command, but it still has CMD_SEARCH assigned to it
 typedef enum {
+    // client commands
     CMD_TRACKER_START,
     CMD_TRACKER_STOP,
     CMD_TRACKER_STABILIZE,
@@ -47,6 +48,16 @@ typedef enum {
     CMD_DOWNLOAD_HELP,
     CMD_UPLOAD,
     CMD_UPLOAD_HELP,
+
+    // server commands
+    CMD_SERVER_START,
+    CMD_SERVER_STOP,
+    CMD_SERVER_HELP,
+    CMD_DB_LIST_PEERS,
+    CMD_DB_LIST_UPLOADS,
+    CMD_DB_HELP,
+
+    // common commands
     CMD_HELP,
     CMD_CLEAR,
     CMD_QUIT,
