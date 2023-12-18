@@ -270,7 +270,7 @@ void server_thread(server_t *server) {
 
             // it is safe to do memcpy instead of deserializing, because by convention
             // the file is sent without peers because it would be hard to maintain
-            // server just keeps the relevant queriable parameters of the file
+            // server just keeps the relevant queryable parameters of the file
             file_t file;
             memcpy(&file, msg, sizeof(file_t) - sizeof(list_t));
             file.peers = NULL;
@@ -513,8 +513,10 @@ int32_t server_stop(server_t *server) {
     }
 
     list_free(&server->clients);
+    server->clients = NULL;
     server->client_read = NULL;
     file_list_free(&server->uploads);
+    server->uploads = NULL;
 
     pthread_mutex_lock(&server->running_lock);
     server->running = 0;

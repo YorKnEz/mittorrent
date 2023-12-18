@@ -50,7 +50,7 @@ int32_t main(int32_t argc, char **argv) {
                         continue;
                     }
 
-                    print(LOG_DEBUG, "server running\n");
+                    // print(LOG_DEBUG, "server running\n");
 
                     if (CHECK(tracker_stabilize(client.tracker))) {
                         ERR(status, "stabilize error");

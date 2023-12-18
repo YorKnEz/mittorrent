@@ -30,6 +30,7 @@ typedef enum {
     ERR_CANNOT_OPEN,
     ERR_INVALID_FILE,
     ERR_FILE_NOT_FOUND,
+    ERR_DHT_NOT_FOUND,
 
     ERR_GENERIC = -1,         // return -1 and show a generic error message
     ERR_SUCCESS = 0,          // return 0

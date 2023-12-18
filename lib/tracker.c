@@ -152,21 +152,21 @@ void tracker_local_server_thread(tracker_t *tracker) {
 
             pthread_mutex_unlock(&tracker->lock);
 
+            // not found
             if (-1 == status) {
-                print(LOG_ERROR, "[FIND_CLOSEST_PRECEDING_FINGER] Error at node_find_closest_preceding\n");
+                print(LOG_ERROR, "[FIND_CLOSEST_PRECEDING_FINGER] Not found\n");
 
-                if (-1 == send_res(tracker_fd, ERROR, INTERNAL_ERROR, strlen(INTERNAL_ERROR))) {
+                if (-1 == send_res(tracker_fd, SUCCESS, NULL, 0)) {
                     print(LOG_ERROR, "[FIND_CLOSEST_PRECEDING_FINGER] Error at send_res\n");
                     break;
                 }
-
-                break;
+            } else {
+                if (-1 == send_res(tracker_fd, SUCCESS, &res, sizeof(node_remote_t))) {
+                    print(LOG_ERROR, "[FIND_CLOSEST_PRECEDING_FINGER] Error at send_res\n");
+                    break;
+                }
             }
             
-            if (-1 == send_res(tracker_fd, SUCCESS, &res, sizeof(node_remote_t))) {
-                print(LOG_ERROR, "[FIND_CLOSEST_PRECEDING_FINGER] Error at send_res\n");
-                break;
-            }
 
             break;
         }
@@ -734,25 +734,30 @@ int32_t tracker_cleanup(tracker_t *tracker) {
     pthread_mutex_destroy(&tracker->mlock);
 
     // before leaving, we must send the keys that we handle to our successor
-    while (tracker->files) {
-        char *file_ser;
-        uint32_t file_ser_size;
+    // only if im not the only node in the network
+    if (key_cmp(&tracker->node.id, &tracker->node.finger[0].node.id)) {
+        while (tracker->files) {
+            char *file_ser;
+            uint32_t file_ser_size;
 
-        serialize_file(&tracker->files->file, &file_ser, &file_ser_size);
+            serialize_file(&tracker->files->file, &file_ser, &file_ser_size);
 
-        char *msg;
-        uint32_t msg_size;
-        
-        if (CHECK(node_req(&tracker->node.finger[0].node, UPLOAD, file_ser, file_ser_size, &msg, &msg_size))) {
-            print(LOG_ERROR, "[tracker_upload] Error at node_req\n");
+            char *msg;
+            uint32_t msg_size;
+            
+            if (CHECK(node_req(&tracker->node.finger[0].node, UPLOAD, file_ser, file_ser_size, &msg, &msg_size))) {
+                print(LOG_ERROR, "[tracker_cleanup] Error at node_req\n");
+                free(msg);
+                free(file_ser);
+                status = 0;
+                break; // if my successor doesn't respond i give up
+            }
+
+            free(msg);
             free(file_ser);
-            return status;
+
+            file_list_remove(&tracker->files, &tracker->files->file.id);
         }
-
-        free(msg);
-        free(file_ser);
-
-        file_list_remove(&tracker->files, &tracker->files->file.id);
     }
 
     local_file_list_free(&tracker->local_files);

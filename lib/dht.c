@@ -88,7 +88,12 @@ int32_t node_find_prev(node_local_t *node, key2_t *id, node_remote_t *res) {
     memcpy(&next, &node->finger[0].node, sizeof(node_remote_t));
 
     while (!key_in(id, &current.id, 0, &next.id, 1)) {
-        if ((status = node_find_closest_preceding_remote(node, &current, id, &current)) != 0) {
+        if (CHECK(node_find_closest_preceding_remote(node, &current, id, &current))) {
+            if (status == ERR_DHT_NOT_FOUND) {
+                print(LOG_ERROR, "[node_find_prev] Not found\n");
+                continue;
+            }
+            
             print(LOG_ERROR, "[node_find_prev] Error at node_find_closest_preceding_remote\n");
             return status;
         }
@@ -202,6 +207,11 @@ int32_t node_find_closest_preceding_remote(node_local_t *node, node_remote_t *fw
     if (CHECK(node_req(fwd_node, FIND_CLOSEST_PRECEDING_FINGER, id, sizeof(key2_t), &msg, &msg_size))) {
         print(LOG_ERROR, "[node_find_closest_preceding_remote] Error at node_req\n");
         return status;
+    }
+
+    // not found
+    if (msg_size == 0) {
+        return ERR_DHT_NOT_FOUND;
     }
 
     memcpy(res, msg, sizeof(node_remote_t));
